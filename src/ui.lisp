@@ -14,6 +14,7 @@
                     (#:paths #:open-orders.paths)
                     (#:tbl #:open-orders.tables)))
 (in-package #:open-orders.ui)
+(declaim (optimize (debug 3)))
 
 (defclass/std connection ()
   ((auth db db-future menu)))
@@ -23,7 +24,12 @@
   (crypto:byte-array-to-hex-string
    (crypto:random-data 16)))
 
-(defun on-edit-customer-screen (body conn instance)
+(defmethod marshal:class-persistent-slots ((class tbl:customer))
+  (closer-mop:ensure-finalized (class-of class))
+  (mapcar #'closer-mop:slot-definition-name (closer-mop:class-slots (class-of class))))
+
+(defun on-edit-customer-screen (body conn &optional instance)
+  (setf (clog:visiblep body) nil)
   (clog:destroy-children body)
   (*let ((div (clog:create-div body :class "container"))
          (header (clog:create-element div "nav"))
@@ -31,37 +37,50 @@
          (back (clog:create-button (clog:create-list-item header-list)
                                    :content "Back"
                                    :class "outline"))
-         (form (clog:create-form div))
-         (name (clog:create-form-element
-                form :text
-                :label (clog:create-label
-                        form
-                        :content "Customer Name")))
-         (contact-first-name (clog:create-form-element
-                              form :text
-                              :label (clog:create-label
-                                      form
-                                      :content "Primary Contact First Name")))
-         (contact-last-name (clog:create-form-element
-                             form :text
-                             :label (clog:create-label
-                                     form
-                                     :content "Primary Contact Last Name")))
-         (contact-email (clog:create-form-element
-                         form :text
-                         :label (clog:create-label
-                                 form
-                                 :content "Primary Contact Email")))
-         (contact-phone (clog:create-form-element
-                         form :text
-                         :label (clog:create-label
-                                 form
-                                 :content "Primary Contact Phone")))
-         (_ (clog:create-br div))
-         (_notes-label (clog:create-p div :content "Notes:"))
-         (notes-name (symbol-name (gensym "Notes")))
-         (_notes (clog:create-text-area div :rows 4 :name notes-name))
-         (save (clog:create-button div :content "Save")))
+         (clear (clog:create-button (clog:create-list-item header-list)
+                                    :content "Clear"
+                                    :class "outline"))
+         (form-div (clog:create-form div :class "container"))
+         (customer (or instance
+                       (a:when-let (saved (clog:storage-element (clog:window body) :local
+                                                                "active-customer-edit"))
+                         (unless (string-equal saved "null")
+                           (marshal:unmarshal (let ((*read-eval* nil))
+                                                (read-from-string saved)))))
+                       (make-instance 'tbl:customer)))
+         save)
+    (format t "customer: ~a" customer)
+    (open-orders.class-ui:class-ui (list :id :ignore) customer form-div)
+    (setf save (clog:create-button div))
+    (setf (clog:visiblep body) t)
+
+    ;; autosave wip input
+    (clog:set-on-change
+     div
+     (fn (obj)
+       (setf (clog:storage-element (clog:window body) :local
+                                   "active-customer-edit")
+             (format nil "~S" (marshal:marshal customer)))))
+
+    (clog:set-on-click
+     save
+     (fn (obj)
+       (sql:exec-insert customer (db conn))
+       (clog:storage-remove (clog:window body) :local "active-customer-edit")
+       (on-logged-in-screen body conn)))
+    
+    (clog:set-on-click
+     clear
+     (fn (obj)
+       (clog:storage-remove (clog:window body) :local "active-customer-edit")
+       (on-edit-customer-screen body conn)))
+    (clog:set-on-click
+     back
+     (fn (obj)
+       (setf (clog:storage-element (clog:window body) :local
+                                   "active-customer-edit")
+             (format nil "~S" (marshal:marshal customer)))
+       (on-logged-in-screen body conn)))
 
     ;; (labels
 
@@ -139,7 +158,7 @@
                                      :class "outline"
                                      :content "Logout")))
     (clog:set-on-click new-customer-button
-                       (fn (obj) (on-new-customer-screen body conn)))
+                       (fn (obj) (on-edit-customer-screen body conn)))
     (clog:set-on-click customers (fn (obj) (on-customers-screen body conn)))
     (clog:set-on-click logout
                        (lambda (obj)

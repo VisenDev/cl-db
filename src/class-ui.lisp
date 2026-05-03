@@ -8,14 +8,30 @@
                 #:defclass/std
                 #:class/std)
   (:local-nicknames (#:a #:alexandria)
-                    (#:mop #:closer-mop)))
+                    (#:mop #:closer-mop))
+  (:export #:config/checkbox
+           #:slot-ui
+           #:config/toggle
+           #:style
+           #:config/filepicker
+           #:config/text
+           #:placeholder
+           #:config/integer
+           #:min-value
+           #:max-value
+           #:config/number
+           #:config/slider
+           #:config/radio
+           #:options
+           #:class-ui))
 (in-package #:open-orders.class-ui)
 
 (declaim (optimize (debug 3) (safety 3)))
 
 (defclass/std config ()
   ((label)
-   (value)))
+   (value)
+   (div-class label-class input-class :std "")))
 
 (defgeneric slot-ui (config container on-update-function))
 
@@ -25,14 +41,15 @@
     :type (member :switch :checkbox))))
 
 (defmethod slot-ui ((config config/toggle) container on-update-function)
-  (let* ((div (clog:create-div container))
-         (label (clog:create-label div :content (label config)))
+  (let* ((div (clog:create-div container :class (div-class config)))
+         (label (clog:create-label div :content (label config) :class (label-class config)))
          (name (symbol-name (gensym "open-orders-toggle")))
          (input (clog:create-form-element
                  div :checkbox :role (if (eq (style config) :switch) "switch" "")
                  :name name
                  :label label
-                 :value (if (value config) "on" "off"))))
+                 :value (if (value config) "on" "off")
+                 :class (label-class config))))
     (clog:set-on-change
      input
      (fn (obj)
@@ -41,11 +58,12 @@
 (defclass/std config/filepicker (config) ())
 
 (defmethod slot-ui ((config config/filepicker) container on-update-function)
-  (let* ((div (clog:create-div container))
-         (label (clog:create-label div :content (label config)))
+  (let* ((div (clog:create-div container :class (div-class config)))
+         (label (clog:create-label div :content (label config) :class (label-class config)))
          (input (clog:create-form-element
                  div :file
-                 :label label)))
+                 :label label
+                 :class (input-class config))))
     (clog:set-on-change
      input (fn (obj)
              (a:when-let (path (ignore-errors (pathname (clog:value input))))
@@ -55,13 +73,14 @@
   ((placeholder :std "" :type string)))
 
 (defmethod slot-ui ((config config/text) container on-update-function)
-  (let* ((div (clog:create-div container))
-         (label (clog:create-label div :content (label config)))
+  (let* ((div (clog:create-div container :class (div-class config)))
+         (label (clog:create-label div :content (label config) :class (label-class config)))
          (input (clog:create-form-element
                  div :text
                  :label label
                  :value (if (value config) (value config) "")
-                 :placeholder (placeholder config))))
+                 :placeholder (placeholder config)
+                 :class (input-class config))))
 
     (clog:set-on-change
      input (fn (obj)
@@ -72,11 +91,14 @@
    (max :accessor max-value :initarg :max :initform nil)))
 
 (defmethod slot-ui ((config config/integer) container on-update-function)
-  (let* ((label (clog:create-label container :content (label config)))
+  (let* ((div (clog:create-div container :class (div-class config)))
+         (label (clog:create-label div :content (label config)
+                                       :class (label-class config)))
          (args (list
-                container :number
+                div :number
                 :value (if (value config) (value config) 0)
-                :label label)))
+                :label label
+                :class (input-class config))))
     (when (min-value config) (a:appendf args (list :min (min-value config))))
     (when (max-value config) (a:appendf args (list :max (max-value config))))
     (let ((input (apply #'clog:create-form-element args)))
@@ -90,11 +112,14 @@
    (max :accessor max-value :initarg :max :initform nil)))
 
 (defmethod slot-ui ((config config/number) container on-update-function)
-  (let* ((label (clog:create-label container :content (label config)))
+  (let* ((div (clog:create-div container :class (div-class config)))
+         (label (clog:create-label div :content (label config)
+                                       :class (label-class config)))
          (args (list
-                container :number
+                div :number
                 :value (if (value config) (value config) 0)
-                :label label)))
+                :label label
+                :class (input-class config))))
     (when (min-value config) (a:appendf args (list :min (min-value config))))
     (when (max-value config) (a:appendf args (list :max (max-value config))))
     (let ((input (apply #'clog:create-form-element args)))
@@ -111,12 +136,15 @@
         :initform (error "This slot is mandatory"))))
 
 (defmethod slot-ui ((config config/slider) container on-update-function)
-  (let* ((label (clog:create-label container :content (label config)))
-         (input (clog:create-form-element container :range
+  (let* ((div (clog:create-div container :class (div-class config)))
+         (label (clog:create-label div :content (label config)
+                                       :class (label-class config)))
+         (input (clog:create-form-element div :range
                                           :label label
                                           :value (or (value config) 0)
                                           :min (min-value config)
-                                          :max (max-value config))))
+                                          :max (max-value config)
+                                          :class (input-class config))))
     
     (clog:set-on-change
      input (fn (obj)
@@ -130,11 +158,12 @@
   ((options :type list)))
 
 (defmethod slot-ui ((config config/radio) container on-update-function)
-  (let* ((div (clog:create-fieldset container))
-         (legend (clog:create-legend div :content (label config)))
+  (let* ((div (clog:create-fieldset container :class (div-class config)))
+         (legend (clog:create-legend div :content (label config)
+                                         :class (label-class config)))
          (name (symbol-name (gensym "open-orders-radio")))
          (inputs
-           (loop :for option :in (options config)
+           (loop :for option :in (reverse (options config))
                  :for radio-label = (clog:create-label div :content option)
                  :collect
                  (clog:create-form-element
@@ -149,13 +178,18 @@
 (defclass/std config/color (config) ())
 
 (defmethod slot-ui ((config config/color) container on-update-function)
-  (let* ((label (clog:create-label container :content (label config)))
-         (input (clog:create-form-element container :color :label label)))
+  (let* ((div (clog:create-div container :class (div-class config)))
+         (label (clog:create-label div :content (label config) :class (label-class config)))
+         (input (clog:create-form-element div :color :label label
+                                                     :class (input-class config))))
 
     (clog:set-on-change
      input (fn (obj)
              (funcall on-update-function
                       (clog:value input))))))
+
+(defmethod slot-ui ((config (eql :ignore)) container on-update-function)
+  "Configs of value :ignore should be ignored")
 
 (defclass/std config/list (config)
   ((item-config :std (make-instance 'config/text :label ""))
@@ -167,6 +201,7 @@
 
 
 (defmethod slot-ui ((config config/list) container on-update-function)
+  (error "TODO")
   (let* (;; (div (clog:create-div container))
          ;; (label (clog:create-label div :content (label config)))
          (toplevel (clog:create-div container))
@@ -230,6 +265,7 @@
   (abs (- a b)))
 
 (defgeneric finalize-config (config instance slotd))
+(defmethod finalize-config ((config (eql :ignore)) instance slotd))
 (defmethod finalize-config ((config config) instance slotd)
   (let ((name (mop:slot-definition-name slotd))
         (type (typexpand (mop:slot-definition-type slotd))))
@@ -315,7 +351,7 @@
 (defmethod class-ui (slot-config-plist
                       (instance standard-object) (container clog:clog-obj))
   (let ((form (clog:create-form container :class *form-class*)))
-    (dolist (slotd (mop:class-slots (class-of instance)))
+    (dolist (slotd (reverse (mop:class-slots (class-of instance))))
       (let* ((name (mop:slot-definition-name slotd))
              (config (getf* slot-config-plist name (make-instance 'config))))
         (finalize-config config instance slotd)

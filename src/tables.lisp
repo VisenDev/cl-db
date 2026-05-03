@@ -88,7 +88,8 @@
 
 (defclass/std contactable-mixin ()
   ((contact-first-name contact-last-name contact-email contact-phone
-                       :type string :std "")))
+                       :type string :std ""))
+  (:metaclass sql:sql-table))
 
 (defclass/std customer (open-orders-table contactable-mixin)
   ((name :type string))

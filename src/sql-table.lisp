@@ -258,8 +258,15 @@
     ((class sql-table) &rest initargs)
   (declare (ignore initargs))
   (find-class 'sql-table-direct-slot-definition))
+
 (defmethod mop:compute-effective-slot-definition
     ((class sql-table) name direct-slots)
+  (unless (every (lambda (slotd)
+                   (eq (class-of slotd)
+                       (find-class 'sql-table-direct-slot-definition)))
+                 direct-slots)
+    (error "Invalid direct slot class for ~a" direct-slots))
+  
   (let ((eslot (call-next-method))
         (slot-name (some #'mop:slot-definition-name direct-slots))
         (class-name (class-name class))
