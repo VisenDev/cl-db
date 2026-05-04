@@ -10,14 +10,29 @@
                     (#:gui #:clog-gui)
                     (#:auth #:clog-auth)
                     (#:sql #:open-orders.sql-table)
-                    ;; (#:db #:open-orders.db)
                     (#:paths #:open-orders.paths)
                     (#:tbl #:open-orders.tables)))
 (in-package #:open-orders.ui)
 (declaim (optimize (debug 3)))
 
+
+(deftype page-function () '(function (clog:clog-obj connection) t))
+
 (defclass/std connection ()
-  ((user db db-future menu)))
+  ((user db db-future menu page-function-stack)))
+
+(declaim (ftype page-function on-logged-in-screen)) ;;forward declaration
+
+(defun page-back (body conn &optional (default #'on-logged-in-screen))
+  "Go to the last page on the stack"
+  (if (page-function-stack conn)
+      (funcall (pop (page-function-stack conn)) body conn)
+      (funcall default body conn)))
+
+(defun page-go (body conn &key from to)
+  (push from (page-function-stack conn))
+  (funcall to body conn))
+
 
 (defun authentication-token-create ()
   "Create a unique token used to associate a browser with a user"
@@ -28,9 +43,9 @@
   (closer-mop:ensure-finalized (class-of class))
   (mapcar #'closer-mop:slot-definition-name (closer-mop:class-slots (class-of class))))
 
-(defvar *last-edited-customer* nil)
-
-(defun on-edit-customer-screen (body conn &optional instance)
+(defvar *customer-to-edit* nil
+  "Optional parameter to pass to on-edit-customer-screen")
+(defun on-edit-customer-screen (body conn)
   (setf (clog:visiblep body) nil)
   (clog:destroy-children body)
   (*let ((div (clog:create-div body :class "container"))
@@ -43,7 +58,7 @@
                                     :content "Clear"
                                     :class "outline"))
          (form-div (clog:create-form div :class "container"))
-         (customer (or instance
+         (customer (or *customer-to-edit*
                        (a:when-let (saved (clog:storage-element (clog:window body) :local
                                                                 "active-customer-edit"))
                          (unless (string-equal saved "null")
@@ -56,8 +71,6 @@
       ;; Only allowing clearing new customers, not customers being edited
       (setf (clog:visiblep clear) nil))
     
-    (setf *last-edited-customer* customer)
-    (format t "customer: ~a" customer)
     (open-orders.class-ui:class-ui (list :id :ignore) customer form-div)
     (setf save (clog:create-button div :content "Save"))
     (setf (clog:visiblep body) t)
@@ -76,11 +89,11 @@
        (cond ((null (tbl:id customer))
               (sql:exec-insert customer (db conn))
               (clog:storage-remove (clog:window body) :local "active-customer-edit")
-              (on-logged-in-screen body conn))
+              (page-back body conn))
              (t (sql:exec-update customer (db conn))
                 (format t "Updated customer id ~a~%" (tbl:id customer))
                 (clog:storage-remove (clog:window body) :local "active-customer-edit")
-                (on-logged-in-screen body conn)))))
+                (page-back body conn)))))
     
     (clog:set-on-click
      clear
@@ -94,8 +107,73 @@
          (setf (clog:storage-element (clog:window body) :local
                                      "active-customer-edit")
                (format nil "~S" (marshal:marshal customer))))
-       (on-logged-in-screen body conn)))
-    ))
+       (page-back body conn)))))
+
+(defvar *material-to-edit* nil
+  "Optional parameter to pass to on-edit-material-screen")
+(defun on-edit-material-screen (body conn)
+  (setf (clog:visiblep body) nil)
+  (clog:destroy-children body)
+  (*let ((div (clog:create-div body :class "container"))
+         (header (clog:create-element div "nav"))
+         (header-list (clog:create-unordered-list header))
+         (back (clog:create-button (clog:create-list-item header-list)
+                                   :content "Back"
+                                   :class "outline"))
+         (clear (clog:create-button (clog:create-list-item header-list)
+                                    :content "Clear"
+                                    :class "outline"))
+         (form-div (clog:create-form div :class "container"))
+         (material (or *material-to-edit*
+                       (a:when-let (saved (clog:storage-element (clog:window body) :local
+                                                                "active-material-edit"))
+                         (unless (string-equal saved "null")
+                           (marshal:unmarshal (let ((*read-eval* nil))
+                                                (read-from-string saved)))))
+                       (make-instance 'tbl:material)))
+         save)
+    ;; TODO a cleaner way of hiding the clear button
+    (when (tbl:id material)
+      ;; Only allowing clearing new materials, not materials being edited
+      (setf (clog:visiblep clear) nil))
+    
+    (open-orders.class-ui:class-ui (list :id :ignore) material form-div)
+    (setf save (clog:create-button div :content "Save"))
+    (setf (clog:visiblep body) t)
+
+    ;; autosave wip input
+    (clog:set-on-change
+     div
+     (fn (obj)
+       (setf (clog:storage-element (clog:window body) :local
+                                   "active-material-edit")
+             (format nil "~S" (marshal:marshal material)))))
+
+    (clog:set-on-click
+     save
+     (fn (obj)
+       (cond ((null (tbl:id material))
+              (sql:exec-insert material (db conn))
+              (clog:storage-remove (clog:window body) :local "active-material-edit")
+              (page-back body conn))
+             (t (sql:exec-update material (db conn))
+                (format t "Updated material id ~a~%" (tbl:id material))
+                (clog:storage-remove (clog:window body) :local "active-material-edit")
+                (page-back body conn)))))
+    
+    (clog:set-on-click
+     clear
+     (fn (obj)
+       (clog:storage-remove (clog:window body) :local "active-material-edit")
+       (on-edit-material-screen body conn)))
+    (clog:set-on-click
+     back
+     (fn (obj)
+       (unless (tbl:id material)
+         (setf (clog:storage-element (clog:window body) :local
+                                     "active-material-edit")
+               (format nil "~S" (marshal:marshal material))))
+       (page-back body conn)))))
 
 (defun on-customers-screen (body conn)
   (clog:destroy-children body)
@@ -119,13 +197,49 @@
                 (clog:create-table-heading table-head :content ""))
     :for customer :in customers
     :for row = (clog:create-table-row div)
-    :do (clog:create-table-column row :content (tbl:name customer))
-        (clog:create-table-column row :content (tbl:contact-email customer))
-        (clog:set-on-click (clog:create-button (clog:create-table-column row)
-                                               :content "Edit")
-                           (let ((customer customer))
-                             (fn (obj)
-                               (on-edit-customer-screen body conn customer))))))
+    :do
+       (let ((customer customer))
+         (clog:create-table-column row :content (tbl:name customer))
+         (clog:create-table-column row :content (tbl:contact-email customer))
+         (clog:set-on-click (clog:create-button (clog:create-table-column row)
+                                                :content "Edit")
+
+                            (fn (obj)
+                              (let ((*customer-to-edit* customer))
+                                (page-go body conn :from #'on-customers-screen
+                                                   :to #'on-edit-customer-screen)))))))
+
+(defun on-materials-screen (body conn)
+  (clog:destroy-children body)
+
+  (loop
+    :with div = (clog:create-div body :class "container")
+    :with header = (clog:create-element div "nav")
+    :with header-list = (clog:create-unordered-list header)
+    :with back = (clog:set-on-click
+                  (clog:create-button (clog:create-list-item header-list)
+                                      :content "Back"
+                                      :class "outline")
+                  (fn (obj) (on-logged-in-screen body conn)))
+
+    :with materials = (sql:exec-select-all 'tbl:material (db conn))
+    :with table = (clog:create-table div)
+    :with table-head = (clog:create-table-head table)
+    :with _ = (progn
+                (clog:create-table-heading table-head :content "Name")
+                (clog:create-table-heading table-head :content "Edit"))
+    :for material :in materials
+    :for row = (clog:create-table-row div)
+    :do
+       (let ((material material))
+         (clog:create-table-column row :content (tbl:name material))
+         (clog:set-on-click (clog:create-button (clog:create-table-column row)
+                                                :content "Edit")
+                            (let ((*material-to-edit* material))
+                              (fn (obj)
+                                (page-go body conn :from #'on-materials-screen
+                                                   :to #'on-edit-material-screen)))))))
+
 
 (defun menu-bar-generate (body conn)
   (*let ((div (clog:create-div body :class "container"))
@@ -138,15 +252,24 @@
          (new-customer-button (clog:create-button (clog:create-list-item new-dropdown-list )
                                                   :content "New Customer"
                                                   :class "outline"))
+         (new-material-button (clog:create-button (clog:create-list-item new-dropdown-list )
+                                                  :content "New Material"
+                                                  :class "outline"))
          (customers (clog:create-button (clog:create-list-item header-list)
                                         :class "outline"
                                         :content "Customers"))
+         (materials (clog:create-button (clog:create-list-item header-list)
+                                        :class "outline"
+                                        :content "Materials"))
          (logout (clog:create-button (clog:create-list-item header-list)
                                      :class "outline"
                                      :content "Logout")))
     (clog:set-on-click new-customer-button
                        (fn (obj) (on-edit-customer-screen body conn)))
+    (clog:set-on-click new-material-button
+                       (fn (obj) (on-edit-material-screen body conn)))
     (clog:set-on-click customers (fn (obj) (on-customers-screen body conn)))
+    (clog:set-on-click materials (fn (obj) (on-materials-screen body conn)))
     (clog:set-on-click logout
                        (lambda (obj)
                          (declare (ignore obj))

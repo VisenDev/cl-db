@@ -195,7 +195,7 @@
 
 (defclass/std config/list (config)
   ((item-config :std (make-instance 'config/text :label ""))
-   (item-count)
+   (item-count :std 0)
    (adjustable :std t)))
 
 (defun remove-nth (n list)
@@ -203,63 +203,100 @@
 
 
 (defmethod slot-ui ((config config/list) container on-update-function)
-  (error "TODO")
-  (let* (;; (div (clog:create-div container))
-         ;; (label (clog:create-label div :content (label config)))
-         (toplevel (clog:create-div container))
-         (details (clog:create-details toplevel))
-         (label (clog:create-summary details :content (label config)))
-         (values (make-list (item-count config))))
+  (warn "Using list ui, which is broken right now")
+  (let* ((div (clog:create-div container :class (div-class config)))
+         (label (clog:create-label div :class (label-class config) :content (label config)))
+         (blockquote (clog:create-element div "blockquote"))
+         (list (clog:create-unordered-list blockquote :class (input-class config)))
+         (n (if (not (plusp (item-count config)))
+                1
+                (item-count config))))
     (declare (ignore label))
+    (labels ((list-ui (configs)
+               (clog:destroy-children list)
+               (dolist (c configs)
+                 (slot-ui c (clog:create-list-item list)
+                          (lambda (new-value)
+                            (print "TODO")
+                            ))
+                 )
+               ))
+      (list-ui (loop :repeat n :collect (item-config config)))
+      (when (adjustable config)
+        (let* ((nav (clog:create-element blockquote "nav"))
+               (ctrl-list (clog:create-unordered-list nav)))
+          (clog:set-on-click
+           (clog:create-button (clog:create-list-item ctrl-list) :content "Add")
+           (fn (obj)
+             (incf n)
+             (list-ui (loop :repeat n :collect (item-config config)))))
 
-    (loop
-      :for i :below (item-count config)
-      :for div = (clog:create-list-item details)
-      :collect div :into divs
-      :do
-         (let ((i i))
-           (slot-ui (item-config config) div
-                    (lambda (item-value)
-                      (setf (nth i values) item-value)
-                      (funcall on-update-function values))))
-      :finally
+          (clog:set-on-click
+           (clog:create-button (clog:create-list-item ctrl-list) :content "Remove")
+           (fn (obj)
+             (when (plusp n)
+               (decf n)
+               (list-ui (loop :repeat n :collect (item-config config))))))))))
+  
+  ;; (let* (;; (div (clog:create-div container))
+  ;;        ;; (label (clog:create-label div :content (label config)))
+  ;;        (toplevel (clog:create-div container))
+  ;;        (details (clog:create-details toplevel))
+  ;;        (label (clog:create-summary details :content (label config)))
+  ;;        (values (make-list (item-count config))))
+  ;;   (declare (ignore label))
+
+  ;;   (loop
+  ;;     :for i :below (item-count config)
+  ;;     :for div = (clog:create-list-item details)
+  ;;     :collect div :into divs
+  ;;     :do
+  ;;        (let ((i i))
+  ;;          (slot-ui (item-config config) div
+  ;;                   (lambda (item-value)
+  ;;                     (setf (nth i values) item-value)
+  ;;                     (funcall on-update-function values))))
+  ;;     :finally
 
 
-         ;; TODO
+  ;;        ;; TODO
 
-         ;; This code is all super buggy
-         ;; I need to rethink this whole list editing system
-         (when (adjustable config)
-           (labels ((create-destroy-button (i div)
-                      (clog:set-on-click
-                       (clog:create-button div :content "X")
-                       (fn (obj)
-                         (setf values (remove-nth i values))
-                         (clog:destroy div)
-                         (setf divs (remove-nth i divs))
-                         (funcall on-update-function values)
-                         (when (plusp i)
-                           (create-destroy-button (1- (length values))
-                                                  (nth (1- (length divs)) divs)))))))
-             (create-destroy-button (1- i) div)
+  ;;        ;; This code is all super buggy
+  ;;        ;; I need to rethink this whole list editing system
+  ;;        (when (adjustable config)
+  ;;          (labels ((create-destroy-button (i div)
+  ;;                     (clog:set-on-click
+  ;;                      (clog:create-button div :content "X")
+  ;;                      (fn (obj)
+  ;;                        (setf values (remove-nth i values))
+  ;;                        (clog:destroy div)
+  ;;                        (setf divs (remove-nth i divs))
+  ;;                        (funcall on-update-function values)
+  ;;                        (when (plusp i)
+  ;;                          (create-destroy-button (1- (length values))
+  ;;                                                 (nth (1- (length divs)) divs)))))))
 
-             (clog:set-on-click
-              (clog:create-button toplevel :content "New")
-              (fn (obj)
-                (let ((div (clog:create-list-item details))
-                      (i (1- (length divs))))
-                  (a:appendf divs (list div))
-                  (slot-ui
-                   (item-config config) div
-                   (lambda (item-value)
-                     (setf (nth i values) item-value)
-                     (funcall on-update-function values)))
-                  )
-                )
-              )
-             ))
+  ;;            (when div
+  ;;              (create-destroy-button (1- i) div))
 
-      )))
+  ;;            (clog:set-on-click
+  ;;             (clog:create-button toplevel :content "New")
+  ;;             (fn (obj)
+  ;;               (let ((div (clog:create-list-item details))
+  ;;                     (i (1- (length divs))))
+  ;;                 (a:appendf divs (list div))
+  ;;                 (slot-ui
+  ;;                  (item-config config) div
+  ;;                  (lambda (item-value)
+  ;;                    (setf (nth i values) item-value)
+  ;;                    (funcall on-update-function values)))
+  ;;                 )
+  ;;               )
+  ;;             )
+  ;;            ))
+
+  ;;     ))
+  )
 
 
 (defun diff (a b)
