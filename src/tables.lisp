@@ -9,8 +9,6 @@
                     (#:paths #:open-orders.paths)
                     (#:mop #:closer-mop))
   (:export #:user
-           #:user-create-new
-           #:user-update-password
            #:person
            #:customer
            #:part
@@ -42,12 +40,17 @@
            #:database-disconnect
            #:database-connect
            #:authentication-token
-           #:authentication-token-timestamp)
+           #:authentication-token-timestamp
+           #:contactable-mixin
+           #:contact-first-name
+           #:contact-last-name
+           #:contact-email
+           #:contact-phone)
   )
 (in-package #:open-orders.tables)
 
 (defclass autodefined-table () ())
-(defclass open-orders-table (autodefined-table)
+(defclass open-orders-table ()
   ((id :accessor id
        :type integer
        :primary-key t
@@ -66,19 +69,7 @@
    (authentication-token-timestamp :type integer))
   (:metaclass sql:sql-table))
 
-(defun user-create-new (database name password)
-  (sql:exec-insert
-      (make-instance 'user
-                     :name name
-                     :hash (cl-pass:hash password))
-      database))
 
-(defun user-update-password (database name password)
-  (sql:exec-update
-   (make-instance 'user
-                  :name name
-                  :hash (cl-pass:hash password))
-   database))
 
 
 
@@ -86,33 +77,33 @@
 ;;   ((first-name last-name email phone :type string))
 ;;   (:metaclass sql:sql-table))
 
-(defclass/std contactable-mixin ()
+(defclass/std contactable-mixin (autodefined-table)
   ((contact-first-name contact-last-name contact-email contact-phone
                        :type string :std ""))
   (:metaclass sql:sql-table))
 
-(defclass/std customer (open-orders-table contactable-mixin)
+(defclass/std customer (open-orders-table contactable-mixin autodefined-table)
   ((name :type string))
   (:metaclass sql:sql-table))
 
-(defclass/std part (open-orders-table)
+(defclass/std part (open-orders-table autodefined-table)
   ((part-number :type string)
    (description :type string)
    (revision :type string))
   (:metaclass sql:sql-table))
 
-(defclass/std suppliers (open-orders-table contactable-mixin)
+(defclass/std suppliers (open-orders-table contactable-mixin autodefined-table)
   ((name :type string)
    (supplies :type list))
   (:metaclass sql:sql-table))
 
-(defclass/std material (open-orders-table)
+(defclass/std material (open-orders-table autodefined-table)
   ((name :type string)
    (categories :type list)
    (suppliers :type list))
   (:metaclass sql:sql-table))
 
-(defclass/std open-order (open-orders-table)
+(defclass/std open-order (open-orders-table autodefined-table)
   ((customer :type integer :references (customer id))
    (purchase-order :type string)
    (line-item :type integer :std 0)

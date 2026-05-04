@@ -334,6 +334,11 @@
                 (column-lisp-type col)
                 (slot-value instance (column-lisp-name col)))))
 
+(defun instance->primary-key-value (instance)
+  (slot-value instance
+              (column-lisp-name
+               (table.primary-key.column (class->table (class-of instance))))))
+
 (declaim (ftype (function (statement &optional t) t) exec))
 (declaim (special *database*))
 (defmacro defun/exec (name args &body body)
@@ -420,8 +425,11 @@
 
 (defun/exec update (instance)
   (let ((table (class->table (class-of instance))))
-    (make-statement :sql (table.sql.update table)
-                    :params ())))
+    (make-statement :sql (table.sql.update table
+                                           :column-names (instance->sql-names instance))
+                    :params (append (instance->sql-values instance)
+                                    (list
+                                     (instance->primary-key-value instance))))))
 
 
 ;;;; DBI INTEGRATION

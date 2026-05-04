@@ -17,7 +17,7 @@
 (declaim (optimize (debug 3)))
 
 (defclass/std connection ()
-  ((auth db db-future menu)))
+  ((user db db-future menu)))
 
 (defun authentication-token-create ()
   "Create a unique token used to associate a browser with a user"
@@ -27,6 +27,8 @@
 (defmethod marshal:class-persistent-slots ((class tbl:customer))
   (closer-mop:ensure-finalized (class-of class))
   (mapcar #'closer-mop:slot-definition-name (closer-mop:class-slots (class-of class))))
+
+(defvar *last-edited-customer* nil)
 
 (defun on-edit-customer-screen (body conn &optional instance)
   (setf (clog:visiblep body) nil)
@@ -49,9 +51,15 @@
                                                 (read-from-string saved)))))
                        (make-instance 'tbl:customer)))
          save)
+    ;; TODO a cleaner way of hiding the clear button
+    (when (tbl:id customer)
+      ;; Only allowing clearing new customers, not customers being edited
+      (setf (clog:visiblep clear) nil))
+    
+    (setf *last-edited-customer* customer)
     (format t "customer: ~a" customer)
     (open-orders.class-ui:class-ui (list :id :ignore) customer form-div)
-    (setf save (clog:create-button div))
+    (setf save (clog:create-button div :content "Save"))
     (setf (clog:visiblep body) t)
 
     ;; autosave wip input
@@ -65,9 +73,14 @@
     (clog:set-on-click
      save
      (fn (obj)
-       (sql:exec-insert customer (db conn))
-       (clog:storage-remove (clog:window body) :local "active-customer-edit")
-       (on-logged-in-screen body conn)))
+       (cond ((null (tbl:id customer))
+              (sql:exec-insert customer (db conn))
+              (clog:storage-remove (clog:window body) :local "active-customer-edit")
+              (on-logged-in-screen body conn))
+             (t (sql:exec-update customer (db conn))
+                (format t "Updated customer id ~a~%" (tbl:id customer))
+                (clog:storage-remove (clog:window body) :local "active-customer-edit")
+                (on-logged-in-screen body conn)))))
     
     (clog:set-on-click
      clear
@@ -77,68 +90,42 @@
     (clog:set-on-click
      back
      (fn (obj)
-       (setf (clog:storage-element (clog:window body) :local
-                                   "active-customer-edit")
-             (format nil "~S" (marshal:marshal customer)))
+       (unless (tbl:id customer)
+         (setf (clog:storage-element (clog:window body) :local
+                                     "active-customer-edit")
+               (format nil "~S" (marshal:marshal customer))))
        (on-logged-in-screen body conn)))
-
-    ;; (labels
-
-    ;;     (;; (collect-person-data ()
-    ;;      ;;   (let ((person (make-instance 'tbl:person)))
-    ;;      ;;     (setf (tbl:first-name person) (clog:value contact-first-name))
-    ;;      ;;     (setf (tbl:last-name person) (clog:value contact-last-name))
-    ;;      ;;     (setf (tbl:email person) (clog:value contact-email))
-    ;;      ;;     (setf (tbl:phone person) (clog:value contact-phone))
-    ;;      ;;     person))
-             
-    ;;      (save-customer-data ()
-    ;;        (let ((customer instance))
-    ;;          (setf (tbl:name customer) (clog:value name))
-    ;;          (setf (tbl:notes customer)
-
-    ;;                ;; Note the clog:textarea-value function doesn't seem to work
-    ;;                ;; so I do this instead
-    ;;                (clog:js-query
-    ;;                 body (format
-    ;;                       nil "document.getElementsByName(\"~a\")[0].value;"
-    ;;                       notes-name)))
-                 
-    ;;          (setf (tbl:primary-contact customer)
-    ;;                (sql:exec-insert (collect-person-data) (db conn)))
-    ;;          (sql:exec-insert customer (db conn)))))
-
-      
-    ;;   (clog:set-on-click back (fn (obj) (on-logged-in-screen body conn)))
-    ;;   (clog:set-on-click save (fn (obj)
-    ;;                             (save-customer-data)
-    ;;                             (on-logged-in-screen body conn))))
     ))
 
-;; (defun on-customers-screen (body conn)
-;;   (clog:destroy-children body)
+(defun on-customers-screen (body conn)
+  (clog:destroy-children body)
 
-;;   (loop
-;;     :with div = (clog:create-div body :class "container")
-;;     :with header = (clog:create-element div "nav")
-;;     :with header-list = (clog:create-unordered-list header)
-;;     :with back = (clog:set-on-click
-;;                   (clog:create-button (clog:create-list-item header-list)
-;;                                       :content "Back"
-;;                                       :class "outline")
-;;                   (fn (obj) (on-logged-in-screen body conn)))
-;;     :with query = (dbi:prepare (db conn) (format nil "SELECT ID FROM ~a;"
-;;                                                  (sql:lisp-name->sql-name 'tbl:customer)))
-;;     :with ids = (mapcar #'first
-;;                         (progn (dbi:execute query)
-;;                                (dbi:fetch-all query :format :values)))
-;;     :for id :in ids
-;;     :for customer = (sql:exec-select 'tbl:customer id )
-;;     :do (clog:create-p div
-;;                        :content (format nil "~a    ~a"
-;;                                         (db:id customer)
-;;                                         (tbl:name customer))
-;;                        :class "outline")))
+  (loop
+    :with div = (clog:create-div body :class "container")
+    :with header = (clog:create-element div "nav")
+    :with header-list = (clog:create-unordered-list header)
+    :with back = (clog:set-on-click
+                  (clog:create-button (clog:create-list-item header-list)
+                                      :content "Back"
+                                      :class "outline")
+                  (fn (obj) (on-logged-in-screen body conn)))
+
+    :with customers = (sql:exec-select-all 'tbl:customer (db conn))
+    :with table = (clog:create-table div)
+    :with table-head = (clog:create-table-head table)
+    :with _ = (progn
+                (clog:create-table-heading table-head :content "Name")
+                (clog:create-table-heading table-head :content "Email")
+                (clog:create-table-heading table-head :content ""))
+    :for customer :in customers
+    :for row = (clog:create-table-row div)
+    :do (clog:create-table-column row :content (tbl:name customer))
+        (clog:create-table-column row :content (tbl:contact-email customer))
+        (clog:set-on-click (clog:create-button (clog:create-table-column row)
+                                               :content "Edit")
+                           (let ((customer customer))
+                             (fn (obj)
+                               (on-edit-customer-screen body conn customer))))))
 
 (defun menu-bar-generate (body conn)
   (*let ((div (clog:create-div body :class "container"))
@@ -167,6 +154,7 @@
                          (on-login-screen body conn)))))
 
 (defun on-logged-in-screen (body conn)
+  (assert (user conn))
   (clog:destroy-children body)
   (menu-bar-generate body conn)
   (clog:create-p body :content "Logged in :)"))
@@ -178,9 +166,11 @@
     (setf (db conn) (tbl:database-connect))
     (a:when-let (found-user
                  (sql:exec-select 'tbl:user 'tbl:authentication-token tok
-                                  (db conn))))
-    (return-from on-login-screen 
-      (on-logged-in-screen body conn)))
+                                  (db conn)))
+      (setf (user conn)
+            found-user)
+      (return-from on-login-screen 
+        (on-logged-in-screen body conn))))
   
   (clog:destroy-children body)
   (*let ((div (clog:create-div body :class "container"))
@@ -205,8 +195,7 @@
          (msg (clog:create-p div :content "" :style "padding:10px;color:red;")))
 
     (unless (db conn)
-      (setf (db conn) (tbl:database-connect))
-      )
+      (setf (db conn) (tbl:database-connect)))
 
 
     ;; Reset msg on keyboard input
@@ -240,8 +229,9 @@
                            body tok)))
                     
                     ;; goto logged in screen
+                    (setf (user conn) user-record)
                     (on-logged-in-screen body conn))
-                   (t (setf (clog:content msg) "Incorrect Password")))))
+                   (t (setf (clog:inner-html msg) "Incorrect Password")))))
              (handle-keydown (obj event)
                (a:when-let (key (getf event :key))
                  (when (equal key "Enter")
@@ -258,24 +248,19 @@
              (asdf:system-relative-pathname
               "open-orders" "static-files/pico.min.css")))))
 
+(defparameter *use-external-css* nil)
+
 (defun on-new-window (body)
   
   (let ((conn (make-instance 'connection)))
-    ;; (clog:load-css (clog:html-document body)
-    ;;                "https://cdn.jsdelivr.net/npm/@picocss/pico@2.1.1/css/pico.min.css"
-    ;;                )
-
-    ;; begin loading database in parallel
-    ;; (setf (db-future conn)
-    ;;       (lparallel.promise:future
-    ;;         ))
-
-    ;; (setf (db conn) (tbl:database-connect))
-
-
     ;; Load css
-    (clog:create-child (clog:head-element (clog:html-document body))
-                       *pico-css*)
+    (if *use-external-css*
+        (clog:load-css (clog:html-document body)
+                       "https://cdn.jsdelivr.net/npm/@picocss/pico@2.1.1/css/pico.min.css")
+
+        ;; otherwise use local cached version
+        (clog:create-child (clog:head-element (clog:html-document body))
+                           *pico-css*))
 
 
     (clog:set-html-on-close body "<script>close();</script>")
@@ -294,7 +279,5 @@
 
 
 (defun test ()
-  ;; (setf lparallel:*kernel* (lparallel:make-kernel 3))
   (clog:initialize #'on-new-window)
-  (clog:open-browser)
-  )
+  (clog:open-browser))

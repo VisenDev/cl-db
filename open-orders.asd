@@ -8,7 +8,6 @@
                "closer-mop"
                "defclass-std"
                "marshal"
-               ;; "sxql"
                "cl-dbi"
                "sqlite"
                "uiop"
@@ -24,6 +23,7 @@
                              (:file "paths")
                              (:file "sql-table")
                              (:file "tables")
+                             (:file "admin")
                              (:file "ui")
                              (:file "main")))))
 
