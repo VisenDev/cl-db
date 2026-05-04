@@ -24,6 +24,7 @@
                              (:file "sql-table")
                              (:file "tables")
                              (:file "admin")
+                             (:file "class-ui")
                              (:file "ui")
                              (:file "main")))))
 

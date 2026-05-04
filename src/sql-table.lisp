@@ -89,7 +89,7 @@
   (cond
     ((null value) nil)
     ((subtypep type 'integer) value)
-    ((eq type 'string) value)
+    ((eq type 'string) (format nil "~a" value))
     ((eq type 'symbol) (let ((*read-eval* nil)) (read-from-string value)))
     ((eq type 'boolean) (if (= value 1) t nil))
     ((subtypep type 'real) value)

@@ -84,7 +84,9 @@
 
     (clog:set-on-change
      input (fn (obj)
-             (funcall on-update-function (clog:value input))))))
+             (funcall on-update-function
+                      (format nil "~a"
+                              (clog:value input)))))))
 
 (defclass config/integer (config)
   ((min :accessor min-value :initarg :min :initform nil)
