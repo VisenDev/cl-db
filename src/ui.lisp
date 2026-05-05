@@ -429,27 +429,41 @@
       (clog:set-on-key-down user #'handle-keydown)
       (clog:set-on-key-down login #'handle-keydown))))
 
+(declaim (ftype (function (pathname) string) make-b64-image))
+(defun make-b64-image (pathname)
+  ;; TODO finish this
+  (with-open-file (fp pathname :element-type '(unsigned-byte 8))
+    (let* ((b64 (base64:stream-to-base64-string fp))
+           (extension (pathname-type pathname)))
+      (format nil "<img src=\"data:image/~a;base64, ~a\"/>" extension b64))))
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
+  (defvar *secret-alien-technology*
+    (make-b64-image (asdf:system-relative-pathname
+                     "open-orders"
+                     "static-files/secret-alien-technology.png")))
   (defvar *pico-css*
     (format nil "<style>~a</style>"
             (uiop:read-file-string
              (asdf:system-relative-pathname
               "open-orders" "static-files/pico.min.css")))))
-
+(defparameter *use-css* t)
 (defparameter *use-external-css* nil)
 (defparameter *pico-css-url*
   "https://cdn.jsdelivr.net/npm/@picocss/pico@2.1.1/css/pico.min.css")
+
 
 (defun on-new-window (body)
   
   (let ((conn (make-instance 'connection)))
     ;; Load css
-    (if *use-external-css*
-        (clog:load-css (clog:html-document body) *pico-css-url*)
+    (when *use-css*
+      (if *use-external-css*
+          (clog:load-css (clog:html-document body) *pico-css-url*)
 
-        ;; otherwise use local cached version
-        (clog:create-child (clog:head-element (clog:html-document body))
-                           *pico-css*))
+          ;; otherwise use local cached version
+          (clog:create-child (clog:head-element (clog:html-document body))
+                             *pico-css*)))
 
 
     (clog:set-html-on-close body "<script>close();</script>")
