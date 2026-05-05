@@ -261,12 +261,22 @@
             (let ((*material-to-edit* material))
               (page-go body conn :from #'on-materials-screen
                                  :to #'on-edit-material-screen)))))))
-
+(defparameter *source-code-message*
+  "The Source Code is Freely Available <a href=\"https://github.com/visendev/open-orders\" target=\"_blank\">Here</a>")
 
 (defun menu-bar-generate (body conn)
   (*let ((div (clog:create-div body :class "container"))
          (header (clog:create-element div "nav"))
          (header-list (clog:create-unordered-list header))
+         (searchbar-list (clog:create-unordered-list header))
+         (_searchbar (clog:create-form-element (clog:create-list-item searchbar-list)
+                                              :search
+                                              :placeholder "Search..."))
+         (account-dropdown (clog:create-details (clog:create-list-item searchbar-list)
+                                                :class "dropdown"))
+         (_account-dropdown-summary (clog:create-summary account-dropdown
+                                                         :content "More..."))
+         (account-dropdown-list (clog:create-unordered-list account-dropdown))
          (new-dropdown (clog:create-details
                         (clog:create-list-item header-list)
                         :class "dropdown"))
@@ -286,9 +296,32 @@
          (materials (clog:create-button (clog:create-list-item header-list)
                                         :class "outline"
                                         :content "Materials"))
-         (logout (clog:create-button (clog:create-list-item header-list)
-                                     :class "outline"
-                                     :content "Logout")))
+         (logout (clog:create-button (clog:create-list-item account-dropdown-list)
+                                      :class
+                                      "secondary"
+                                     :content "Logout"))
+         (about (clog:create-button (clog:create-list-item account-dropdown-list)
+                                     :class "secondary"
+                                     :content "About"))
+         (about-modal (clog:create-dialog body))
+         (about-body (clog:create-element about-modal "article"))
+         (_1 (clog:create-section about-body
+                                 :h1 :content "Open Orders"))
+         (about-content (clog:create-div about-body))
+         (_2 (clog:create-section
+             about-content :p :content "Copyright 2026, Robert Wess Burnett."))
+         (_3 (clog:create-section
+             about-content :p :content "Licensed Under the GPL-3.0."))
+         (_4 (clog:create-section
+             about-content :p
+             :content *source-code-message*))
+         (about-modal-done (clog:create-button (clog:create-element about-body "footer")
+                                               :content "Done")))
+    (clog:set-on-click about
+                       (fn (obj)
+                         (setf (clog:dialog-openp about-modal) t)))
+    (clog:set-on-click about-modal-done (fn (obj)
+                                          (setf (clog:dialog-openp about-modal) nil)))
     (clog:set-on-click new-customer-button
                        (fn (obj) (on-edit-customer-screen body conn)))
     (clog:set-on-click new-material-button
@@ -305,7 +338,10 @@
   (assert (user conn))
   (clog:destroy-children body)
   (menu-bar-generate body conn)
-  (clog:create-p body :content "Logged in :)"))
+  (*let ((div (clog:create-div body :class "container"))
+         (tbl (clog:create-table div :class "container"))
+         (tbl-head (clog:create-table-head tbl)))
+    (clog:create-table-heading tbl-head :content "Open Orders")))
 
 (defun on-login-screen (body conn)
   
