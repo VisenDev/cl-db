@@ -261,8 +261,51 @@
             (let ((*material-to-edit* material))
               (page-go body conn :from #'on-materials-screen
                                  :to #'on-edit-material-screen)))))))
+
+(defun  on-edit-open-order-screen (body conn)
+  (clog:destroy-children body)
+  (loop 
+    :with div = (clog:create-div body :class "container")
+    :with header = (clog:create-element div "nav")
+    :with header-list = (clog:create-unordered-list header)
+    :with back = (clog:set-on-click
+                  (clog:create-button (clog:create-list-item header-list)
+                                      :content "Back"
+                                      :class "outline")
+                  (fn (obj) (on-logged-in-screen body conn)))
+    :repeat 0))
+
+
 (defparameter *source-code-message*
   "The Source Code is Freely Available <a href=\"https://github.com/visendev/open-orders\" target=\"_blank\">Here</a>")
+
+(declaim (ftype (function (pathname) string) make-b64-image))
+(defun make-b64-image (pathname)
+  ;; TODO finish this
+  (with-open-file (fp pathname :element-type '(unsigned-byte 8))
+    (let* ((bytes (loop :with bytes = (make-array 0
+                                                  :adjustable t
+                                                  :fill-pointer 0
+                                                  :element-type '(unsigned-byte 8))
+                        :repeat (file-length fp)
+                        :do (vector-push-extend (read-byte fp) bytes)
+                        :finally (return bytes)))
+           (b64 (base64:usb8-array-to-base64-string bytes))
+           (extension (pathname-type pathname)))
+      (when (string-equal extension "svg")
+        (setf extension "svg+xml"))
+      (format nil "<img src=\"data:image/~a;base64, ~a\"/>" extension b64))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defvar *lisp-logo-image*
+    (make-b64-image (asdf:system-relative-pathname
+                     "open-orders"
+                     "static-files/lisp-lizard.svg")))
+  (defvar *pico-css*
+    (format nil "<style>~a</style>"
+            (uiop:read-file-string
+             (asdf:system-relative-pathname
+              "open-orders" "static-files/pico.min.css")))))
 
 (defun menu-bar-generate (body conn)
   (*let ((div (clog:create-div body :class "container"))
@@ -270,8 +313,8 @@
          (header-list (clog:create-unordered-list header))
          (searchbar-list (clog:create-unordered-list header))
          (_searchbar (clog:create-form-element (clog:create-list-item searchbar-list)
-                                              :search
-                                              :placeholder "Search..."))
+                                               :search
+                                               :placeholder "Search..."))
          (account-dropdown (clog:create-details (clog:create-list-item searchbar-list)
                                                 :class "dropdown"))
          (_account-dropdown-summary (clog:create-summary account-dropdown
@@ -282,12 +325,16 @@
                         :class "dropdown"))
          (_summary (clog:create-summary new-dropdown :content "New"))
          (new-dropdown-list (clog:create-unordered-list new-dropdown))
+         (new-order-button (clog:create-button
+                               (clog:create-list-item new-dropdown-list)
+                               :content "New Order"
+                               :class "outline"))
          (new-customer-button (clog:create-button
-                               (clog:create-list-item new-dropdown-list )
+                               (clog:create-list-item new-dropdown-list)
                                :content "New Customer"
                                :class "outline"))
          (new-material-button (clog:create-button
-                               (clog:create-list-item new-dropdown-list )
+                               (clog:create-list-item new-dropdown-list)
                                :content "New Material"
                                :class "outline"))
          (customers (clog:create-button (clog:create-list-item header-list)
@@ -297,24 +344,25 @@
                                         :class "outline"
                                         :content "Materials"))
          (logout (clog:create-button (clog:create-list-item account-dropdown-list)
-                                      :class
-                                      "secondary"
+                                     :class
+                                     "secondary"
                                      :content "Logout"))
          (about (clog:create-button (clog:create-list-item account-dropdown-list)
-                                     :class "secondary"
-                                     :content "About"))
+                                    :class "secondary"
+                                    :content "About"))
          (about-modal (clog:create-dialog body))
          (about-body (clog:create-element about-modal "article"))
          (_1 (clog:create-section about-body
-                                 :h1 :content "Open Orders"))
+                                  :h1 :content "Open Orders"))
          (about-content (clog:create-div about-body))
          (_2 (clog:create-section
-             about-content :p :content "Copyright 2026, Robert Wess Burnett."))
+              about-content :p :content "Copyright 2026, Robert Wess Burnett."))
          (_3 (clog:create-section
-             about-content :p :content "Licensed Under the GPL-3.0."))
+              about-content :p :content "Licensed Under the GPL-3.0."))
          (_4 (clog:create-section
-             about-content :p
-             :content *source-code-message*))
+              about-content :p
+              :content *source-code-message*))
+         (_5 (clog:create-child about-content *lisp-logo-image*))
          (about-modal-done (clog:create-button (clog:create-element about-body "footer")
                                                :content "Done")))
     (clog:set-on-click about
@@ -322,6 +370,8 @@
                          (setf (clog:dialog-openp about-modal) t)))
     (clog:set-on-click about-modal-done (fn (obj)
                                           (setf (clog:dialog-openp about-modal) nil)))
+
+    (clog:set-on-click new-order-button (fn (obj) (on-edit-open-order-screen body conn)))
     (clog:set-on-click new-customer-button
                        (fn (obj) (on-edit-customer-screen body conn)))
     (clog:set-on-click new-material-button
@@ -340,8 +390,11 @@
   (menu-bar-generate body conn)
   (*let ((div (clog:create-div body :class "container"))
          (tbl (clog:create-table div :class "container"))
-         (tbl-head (clog:create-table-head tbl)))
-    (clog:create-table-heading tbl-head :content "Open Orders")))
+         (tbl-head (clog:create-table-head tbl))
+         (open-orders (sql:exec-select-all 'tbl:open-order (db conn))))
+    (clog:create-table-heading tbl-head :content "Open Orders")
+    (loop :for order :in open-orders
+          :do (clog:create-table-column (clog:create-table-row tbl) :content (tbl:part order)))))
 
 (defun on-login-screen (body conn)
   
@@ -429,24 +482,7 @@
       (clog:set-on-key-down user #'handle-keydown)
       (clog:set-on-key-down login #'handle-keydown))))
 
-(declaim (ftype (function (pathname) string) make-b64-image))
-(defun make-b64-image (pathname)
-  ;; TODO finish this
-  (with-open-file (fp pathname :element-type '(unsigned-byte 8))
-    (let* ((b64 (base64:stream-to-base64-string fp))
-           (extension (pathname-type pathname)))
-      (format nil "<img src=\"data:image/~a;base64, ~a\"/>" extension b64))))
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defvar *secret-alien-technology*
-    (make-b64-image (asdf:system-relative-pathname
-                     "open-orders"
-                     "static-files/secret-alien-technology.png")))
-  (defvar *pico-css*
-    (format nil "<style>~a</style>"
-            (uiop:read-file-string
-             (asdf:system-relative-pathname
-              "open-orders" "static-files/pico.min.css")))))
 (defparameter *use-css* t)
 (defparameter *use-external-css* nil)
 (defparameter *pico-css-url*
