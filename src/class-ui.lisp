@@ -224,19 +224,15 @@
 
 
 (defmethod slot-ui ((config config/list) container on-update-function)
-  (warn "Using list ui, which is broken right now")
   (*let ((div (clog:create-div container :class (div-class config)))
-         ;; (_label (clog:create-label div :class (label-class config)
-         ;;                               :content (label config)))
          (details (clog:create-details div))
          (_summary (clog:create-summary details :content (label config)
                                                 :class (label-class config)))
          (blockquote (clog:create-element details "blockquote"))
          (list (clog:create-div blockquote))
-         ;; (n (if (not (plusp (item-count config)))
-         ;;        1
-         ;;        (item-count config)))
          (values (pad-list (value config) (item-count config))))
+    (when values
+      (setf (clog:details-openp details) t))
     (labels
         ((list-ui ()
            (clog:destroy-children list)

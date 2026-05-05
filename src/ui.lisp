@@ -43,6 +43,9 @@
   (closer-mop:ensure-finalized (class-of class))
   (mapcar #'closer-mop:slot-definition-name (closer-mop:class-slots (class-of class))))
 
+(defparameter *confirm-js*
+  "confirm(\"Are you sure you want to go back? Your changes will be lost\");")
+
 (defvar *customer-to-edit* nil
   "Optional parameter to pass to on-edit-customer-screen")
 (defun on-edit-customer-screen (body conn)
@@ -65,6 +68,7 @@
                            (marshal:unmarshal (let ((*read-eval* nil))
                                                 (read-from-string saved)))))
                        (make-instance 'tbl:customer)))
+         (changes-made nil)
          save)
     ;; TODO a cleaner way of hiding the clear button
     (when (tbl:id customer)
@@ -79,6 +83,7 @@
     (clog:set-on-change
      div
      (fn (obj)
+       (setf changes-made t)
        (setf (clog:storage-element (clog:window body) :local
                                    "active-customer-edit")
              (format nil "~S" (marshal:marshal customer)))))
@@ -103,11 +108,21 @@
     (clog:set-on-click
      back
      (fn (obj)
-       (unless (tbl:id customer)
-         (setf (clog:storage-element (clog:window body) :local
-                                     "active-customer-edit")
-               (format nil "~S" (marshal:marshal customer))))
-       (page-back body conn)))))
+
+       (cond
+         ;; save new input and go back
+         ((null (tbl:id customer))
+          (setf (clog:storage-element (clog:window body) :local
+                                      "active-customer-edit")
+                (format nil "~S" (marshal:marshal customer)))
+          (page-back body conn))
+         
+         ;; or warn on changing old input
+         ((or (not changes-made)
+              (string-equal "true" (clog:js-query body *confirm-js*)))
+          (clog:storage-remove (clog:window body) :local
+                               "active-customer-edit")
+          (page-back body conn)))))))
 
 (defvar *material-to-edit* nil
   "Optional parameter to pass to on-edit-material-screen")
