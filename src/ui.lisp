@@ -192,9 +192,7 @@
     :with table = (clog:create-table div)
     :with table-head = (clog:create-table-head table)
     :with _ = (progn
-                (clog:create-table-heading table-head :content "Name")
-                (clog:create-table-heading table-head :content "Email")
-                (clog:create-table-heading table-head :content ""))
+                (clog:create-table-heading table-head :content "Name"))
     :for customer :in customers
     :for row = (clog:create-table-row div)
     :do
@@ -226,8 +224,7 @@
     :with table = (clog:create-table div)
     :with table-head = (clog:create-table-head table)
     :with _ = (progn
-                (clog:create-table-heading table-head :content "Name")
-                (clog:create-table-heading table-head :content "Edit"))
+                (clog:create-table-heading table-head :content "Name"))
     :for material :in materials
     :for row = (clog:create-table-row div)
     :do
@@ -235,8 +232,9 @@
          (clog:create-table-column row :content (tbl:name material))
          (clog:set-on-click (clog:create-button (clog:create-table-column row)
                                                 :content "Edit")
-                            (let ((*material-to-edit* material))
-                              (fn (obj)
+
+                            (fn (obj)
+                              (let ((*material-to-edit* material))
                                 (page-go body conn :from #'on-materials-screen
                                                    :to #'on-edit-material-screen)))))))
 

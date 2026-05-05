@@ -1,7 +1,8 @@
 (open-orders.utils:defpackage* #:open-orders.class-ui
   (:use #:cl)
   (:import-from #:open-orders.utils
-                #:fn)
+                #:fn
+                #:*let)
   (:import-from #:introspect-environment
                 #:typexpand)
   (:import-from #:defclass-std
@@ -201,42 +202,79 @@
 (defun remove-nth (n list)
   (nconc (subseq list 0 n) (nthcdr (1+ n) list)))
 
+(defun pad-list (list new-length &optional default-value)
+  (if (> new-length (length list))
+    (loop :repeat (- new-length (length list))
+          :collect default-value :into tail
+          :finally (return (append list tail)))
+    list))
+
+
+(defun duplicate-instance (instance)
+  (mop:ensure-finalized (class-of instance))
+  (let* ((class (class-of instance))
+         (copy (allocate-instance class)))
+    (loop :for slot :in (mapcar #'mop:slot-definition-name
+                                (mop:class-slots class))
+          :when  (slot-boundp instance slot)
+            :do (setf (slot-value copy slot)
+                      (slot-value instance slot))
+          :finally (return copy))))
+
+
 
 (defmethod slot-ui ((config config/list) container on-update-function)
   (warn "Using list ui, which is broken right now")
-  (let* ((div (clog:create-div container :class (div-class config)))
-         (label (clog:create-label div :class (label-class config) :content (label config)))
-         (blockquote (clog:create-element div "blockquote"))
-         (list (clog:create-unordered-list blockquote :class (input-class config)))
-         (n (if (not (plusp (item-count config)))
-                1
-                (item-count config))))
-    (declare (ignore label))
-    (labels ((list-ui (configs)
-               (clog:destroy-children list)
-               (dolist (c configs)
-                 (slot-ui c (clog:create-list-item list)
-                          (lambda (new-value)
-                            (print "TODO")
-                            ))
-                 )
-               ))
-      (list-ui (loop :repeat n :collect (item-config config)))
-      (when (adjustable config)
-        (let* ((nav (clog:create-element blockquote "nav"))
-               (ctrl-list (clog:create-unordered-list nav)))
-          (clog:set-on-click
-           (clog:create-button (clog:create-list-item ctrl-list) :content "Add")
-           (fn (obj)
-             (incf n)
-             (list-ui (loop :repeat n :collect (item-config config)))))
+  (*let ((div (clog:create-div container :class (div-class config)))
+         ;; (_label (clog:create-label div :class (label-class config)
+         ;;                               :content (label config)))
+         (details (clog:create-details div))
+         (_summary (clog:create-summary details :content (label config)
+                                                :class (label-class config)))
+         (blockquote (clog:create-element details "blockquote"))
+         (list (clog:create-div blockquote))
+         ;; (n (if (not (plusp (item-count config)))
+         ;;        1
+         ;;        (item-count config)))
+         (values (pad-list (value config) (item-count config))))
+    (labels
+        ((list-ui ()
+           (clog:destroy-children list)
+           (loop
+             :for val :in values
+             :for i :from 0
+             :do
+                (let ((c (duplicate-instance (item-config config)))
+                      (i i))
+                  (setf (label c) "")
+                  (setf (value c) val)
+                  (slot-ui c list
+                           (lambda (new-value)
+                             (setf (nth i values) new-value)
+                             (funcall on-update-function values))))
+             :finally
+                (when (adjustable config)
+                  (let* ((nav (clog:create-element list "nav"))
+                         (ctrl-list (clog:create-unordered-list nav)))
+                    (clog:set-on-click
+                     (clog:create-button (clog:create-list-item ctrl-list)
+                                         :content "Add")
+                     (fn (obj)
+                       (a:appendf values (list nil))
+                       (funcall on-update-function values)
+                       (list-ui)))
 
-          (clog:set-on-click
-           (clog:create-button (clog:create-list-item ctrl-list) :content "Remove")
-           (fn (obj)
-             (when (plusp n)
-               (decf n)
-               (list-ui (loop :repeat n :collect (item-config config))))))))))
+                    (when (plusp (length values))
+                      (clog:set-on-click
+                       (clog:create-button (clog:create-list-item ctrl-list) :content "Remove")
+                       (fn (obj)
+                         (setf values (subseq values 0 (1- (length values))))
+                         (funcall on-update-function values)
+                         (list-ui)
+                         ))))))
+           ))
+      (list-ui)
+      ))
   
   ;; (let* (;; (div (clog:create-div container))
   ;;        ;; (label (clog:create-label div :content (label config)))
@@ -309,7 +347,9 @@
   (let ((name (mop:slot-definition-name slotd))
         (type (typexpand (mop:slot-definition-type slotd))))
     (unless (label config)
-      (setf (label config) (symbol-name name)))
+      (setf (label config)
+            (map 'string (fn (ch) (if (char= #\- ch) #\Space ch))
+                 (symbol-name name))))
     (unless (value config)
       (when (slot-boundp instance name)
         (setf (value config) (slot-value instance name))))

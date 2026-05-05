@@ -58,7 +58,7 @@
        :initform nil
        :initarg :id)
    (notes :accessor notes
-          :type string
+          :type list
           :initform nil
           :initarg :notes))
   (:metaclass sql:sql-table))
@@ -89,7 +89,9 @@
 (defclass/std part (open-orders-table autodefined-table)
   ((part-number :type string)
    (description :type string)
-   (revision :type string))
+   (revision :type string)
+   (inventory-count :type integer)
+   (inventory-location :type integer))
   (:metaclass sql:sql-table))
 
 (defclass/std suppliers (open-orders-table contactable-mixin autodefined-table)
@@ -111,7 +113,8 @@
    (ship-terms :type string :std "PrePay and Add")
    (billing-terms :type string :std "Net 30")
    (ship-notes :type string)
-   (material :type integer :references (material id)))
+   (material :type integer :references (material id))
+   (run-status :type string))
   (:metaclass sql:sql-table))
 
 (defun database-connect ()
