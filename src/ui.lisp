@@ -41,7 +41,8 @@
 
 (defmethod marshal:class-persistent-slots ((class tbl:customer))
   (closer-mop:ensure-finalized (class-of class))
-  (mapcar #'closer-mop:slot-definition-name (closer-mop:class-slots (class-of class))))
+  (mapcar #'closer-mop:slot-definition-name (closer-mop:class-slots
+                                             (class-of class))))
 
 (defparameter *confirm-js*
   "confirm(\"Are you sure you want to go back? Your changes will be lost\");")
@@ -62,8 +63,9 @@
                                     :class "outline"))
          (form-div (clog:create-form div :class "container"))
          (customer (or *customer-to-edit*
-                       (a:when-let (saved (clog:storage-element (clog:window body) :local
-                                                                "active-customer-edit"))
+                       (a:when-let (saved (clog:storage-element
+                                           (clog:window body) :local
+                                           "active-customer-edit"))
                          (unless (string-equal saved "null")
                            (marshal:unmarshal (let ((*read-eval* nil))
                                                 (read-from-string saved)))))
@@ -93,11 +95,13 @@
      (fn (obj)
        (cond ((null (tbl:id customer))
               (sql:exec-insert customer (db conn))
-              (clog:storage-remove (clog:window body) :local "active-customer-edit")
+              (clog:storage-remove (clog:window body)
+                                   :local "active-customer-edit")
               (page-back body conn))
              (t (sql:exec-update customer (db conn))
                 (format t "Updated customer id ~a~%" (tbl:id customer))
-                (clog:storage-remove (clog:window body) :local "active-customer-edit")
+                (clog:storage-remove (clog:window body)
+                                     :local "active-customer-edit")
                 (page-back body conn)))))
     
     (clog:set-on-click
@@ -140,8 +144,9 @@
                                     :class "outline"))
          (form-div (clog:create-form div :class "container"))
          (material (or *material-to-edit*
-                       (a:when-let (saved (clog:storage-element (clog:window body) :local
-                                                                "active-material-edit"))
+                       (a:when-let (saved (clog:storage-element
+                                           (clog:window body) :local
+                                           "active-material-edit"))
                          (unless (string-equal saved "null")
                            (marshal:unmarshal (let ((*read-eval* nil))
                                                 (read-from-string saved)))))
@@ -169,11 +174,13 @@
      (fn (obj)
        (cond ((null (tbl:id material))
               (sql:exec-insert material (db conn))
-              (clog:storage-remove (clog:window body) :local "active-material-edit")
+              (clog:storage-remove
+               (clog:window body) :local "active-material-edit")
               (page-back body conn))
              (t (sql:exec-update material (db conn))
                 (format t "Updated material id ~a~%" (tbl:id material))
-                (clog:storage-remove (clog:window body) :local "active-material-edit")
+                (clog:storage-remove
+                 (clog:window body) :local "active-material-edit")
                 (page-back body conn)))))
     
     (clog:set-on-click
@@ -214,13 +221,14 @@
        (let ((customer customer))
          (clog:create-table-column row :content (tbl:name customer))
          (clog:create-table-column row :content (tbl:contact-email customer))
-         (clog:set-on-click (clog:create-button (clog:create-table-column row)
-                                                :content "Edit")
+         (clog:set-on-click
+          (clog:create-button (clog:create-table-column row)
+                              :content "Edit")
 
-                            (fn (obj)
-                              (let ((*customer-to-edit* customer))
-                                (page-go body conn :from #'on-customers-screen
-                                                   :to #'on-edit-customer-screen)))))))
+          (fn (obj)
+            (let ((*customer-to-edit* customer))
+              (page-go body conn :from #'on-customers-screen
+                                 :to #'on-edit-customer-screen)))))))
 
 (defun on-materials-screen (body conn)
   (clog:destroy-children body)
@@ -245,29 +253,33 @@
     :do
        (let ((material material))
          (clog:create-table-column row :content (tbl:name material))
-         (clog:set-on-click (clog:create-button (clog:create-table-column row)
-                                                :content "Edit")
+         (clog:set-on-click
+          (clog:create-button (clog:create-table-column row)
+                              :content "Edit")
 
-                            (fn (obj)
-                              (let ((*material-to-edit* material))
-                                (page-go body conn :from #'on-materials-screen
-                                                   :to #'on-edit-material-screen)))))))
+          (fn (obj)
+            (let ((*material-to-edit* material))
+              (page-go body conn :from #'on-materials-screen
+                                 :to #'on-edit-material-screen)))))))
 
 
 (defun menu-bar-generate (body conn)
   (*let ((div (clog:create-div body :class "container"))
          (header (clog:create-element div "nav"))
          (header-list (clog:create-unordered-list header))
-         (new-dropdown (clog:create-details (clog:create-list-item header-list)
-                                            :class "dropdown"))
+         (new-dropdown (clog:create-details
+                        (clog:create-list-item header-list)
+                        :class "dropdown"))
          (_summary (clog:create-summary new-dropdown :content "New"))
          (new-dropdown-list (clog:create-unordered-list new-dropdown))
-         (new-customer-button (clog:create-button (clog:create-list-item new-dropdown-list )
-                                                  :content "New Customer"
-                                                  :class "outline"))
-         (new-material-button (clog:create-button (clog:create-list-item new-dropdown-list )
-                                                  :content "New Material"
-                                                  :class "outline"))
+         (new-customer-button (clog:create-button
+                               (clog:create-list-item new-dropdown-list )
+                               :content "New Customer"
+                               :class "outline"))
+         (new-material-button (clog:create-button
+                               (clog:create-list-item new-dropdown-list )
+                               :content "New Material"
+                               :class "outline"))
          (customers (clog:create-button (clog:create-list-item header-list)
                                         :class "outline"
                                         :content "Customers"))
@@ -324,11 +336,14 @@
          (stay-logged-in-label (clog:create-label
                                 form
                                 :content "Stay Logged In On This Device?"))
-         (stay-logged-in (clog:create-form-element form :checkbox
-                                                   :label stay-logged-in-label
-                                                   :name "stay-logged-in"))
-         (login (clog:create-button div :content "Login" :style "margin-top:20px;"))
-         (msg (clog:create-p div :content "" :style "padding:10px;color:red;")))
+         (stay-logged-in (clog:create-form-element
+                          form :checkbox
+                          :label stay-logged-in-label
+                          :name "stay-logged-in"))
+         (login (clog:create-button
+                 div :content "Login" :style "margin-top:20px;"))
+         (msg (clog:create-p
+               div :content "" :style "padding:10px;color:red;")))
 
     (unless (db conn)
       (setf (db conn) (tbl:database-connect)))
@@ -342,7 +357,8 @@
                (declare (ignorable obj))
                (let ((user-record
                        (handler-case
-                           (sql:exec-select 'tbl:user 'tbl:name (clog:value user)
+                           (sql:exec-select 'tbl:user 'tbl:name
+                                            (clog:value user)
                                             (db conn))
                          (error (e) (clog:alert (clog:window body) e)))))
                  (cond
@@ -385,14 +401,15 @@
               "open-orders" "static-files/pico.min.css")))))
 
 (defparameter *use-external-css* nil)
+(defparameter *pico-css-url*
+  "https://cdn.jsdelivr.net/npm/@picocss/pico@2.1.1/css/pico.min.css")
 
 (defun on-new-window (body)
   
   (let ((conn (make-instance 'connection)))
     ;; Load css
     (if *use-external-css*
-        (clog:load-css (clog:html-document body)
-                       "https://cdn.jsdelivr.net/npm/@picocss/pico@2.1.1/css/pico.min.css")
+        (clog:load-css (clog:html-document body) *pico-css-url*)
 
         ;; otherwise use local cached version
         (clog:create-child (clog:head-element (clog:html-document body))
