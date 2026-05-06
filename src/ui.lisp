@@ -279,33 +279,27 @@
 (defparameter *source-code-message*
   "The Source Code is Freely Available <a href=\"https://github.com/visendev/open-orders\" target=\"_blank\">Here</a>")
 
-(declaim (ftype (function (pathname) string) make-b64-image))
-(defun make-b64-image (pathname)
-  ;; TODO finish this
-  (with-open-file (fp pathname :element-type '(unsigned-byte 8))
-    (let* ((bytes (loop :with bytes = (make-array 0
-                                                  :adjustable t
-                                                  :fill-pointer 0
-                                                  :element-type '(unsigned-byte 8))
-                        :repeat (file-length fp)
-                        :do (vector-push-extend (read-byte fp) bytes)
-                        :finally (return bytes)))
-           (b64 (base64:usb8-array-to-base64-string bytes))
-           (extension (pathname-type pathname)))
-      (when (string-equal extension "svg")
-        (setf extension "svg+xml"))
-      (format nil "<img src=\"data:image/~a;base64, ~a\"/>" extension b64))))
-
 (eval-when (:compile-toplevel :load-toplevel :execute)
+  (declaim (ftype (function (pathname) string) make-b64-image))
+  (defun make-b64-image (pathname)
+    (with-open-file (fp pathname :element-type '(unsigned-byte 8))
+      (let* ((bytes (loop :with bytes = (make-array 0
+                                                    :adjustable t
+                                                    :fill-pointer 0
+                                                    :element-type '(unsigned-byte 8))
+                          :repeat (file-length fp)
+                          :do (vector-push-extend (read-byte fp) bytes)
+                          :finally (return bytes)))
+             (b64 (base64:usb8-array-to-base64-string bytes))
+             (extension (pathname-type pathname)))
+        (when (string-equal extension "svg")
+          (setf extension "svg+xml"))
+        (format nil "<img src=\"data:image/~a;base64, ~a\"/>" extension b64))))
+  
   (defvar *lisp-logo-image*
     (make-b64-image (asdf:system-relative-pathname
                      "open-orders"
-                     "static-files/lisp-lizard.svg")))
-  (defvar *pico-css*
-    (format nil "<style>~a</style>"
-            (uiop:read-file-string
-             (asdf:system-relative-pathname
-              "open-orders" "static-files/pico.min.css")))))
+                     "static-files/lisp-lizard.svg"))))
 
 (defun menu-bar-generate (body conn)
   (*let ((div (clog:create-div body :class "container"))
@@ -485,6 +479,12 @@
 
 (defparameter *use-css* t)
 (defparameter *use-external-css* nil)
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defvar *pico-css*
+    (format nil "<style>~a</style>"
+            (uiop:read-file-string
+             (asdf:system-relative-pathname
+              "open-orders" "static-files/pico.min.css")))))
 (defparameter *pico-css-url*
   "https://cdn.jsdelivr.net/npm/@picocss/pico@2.1.1/css/pico.min.css")
 
