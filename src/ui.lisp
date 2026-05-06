@@ -262,18 +262,29 @@
               (page-go body conn :from #'on-materials-screen
                                  :to #'on-edit-material-screen)))))))
 
+(defclass/std open-order-editable (tbl:part tbl:open-order)
+  () (:metaclass sql:sql-table))
+
 (defun  on-edit-open-order-screen (body conn)
   (clog:destroy-children body)
-  (loop 
-    :with div = (clog:create-div body :class "container")
-    :with header = (clog:create-element div "nav")
-    :with header-list = (clog:create-unordered-list header)
-    :with back = (clog:set-on-click
-                  (clog:create-button (clog:create-list-item header-list)
-                                      :content "Back"
-                                      :class "outline")
-                  (fn (obj) (on-logged-in-screen body conn)))
-    :repeat 0))
+  (*let ((div (clog:create-div body :class "container"))
+         (header (clog:create-element div "nav"))
+         (header-list (clog:create-unordered-list header))
+         (_back (clog:set-on-click (clog:create-button
+                                   (clog:create-list-item header-list)
+                                   :content "Back")
+                (fn (obj) (on-logged-in-screen body conn))))
+         (open-order (make-instance 'tbl:open-order))
+         (part (make-instance 'tbl:part))
+         (content (clog:create-div div :class "grid"))
+         ;; (content (clog:create-table-row (clog:create-table div)))
+         )
+    (open-orders.class-ui:class-ui '() part
+                                   (clog:create-fieldset content :class "grid")
+                                   )
+    (open-orders.class-ui:class-ui '() open-order
+                                   (clog:create-fieldset content :class "grid")
+                                   )))
 
 
 (defparameter *source-code-message*
@@ -303,7 +314,7 @@
 
 (defun menu-bar-generate (body conn)
   (*let ((div (clog:create-div body :class "container"))
-         (header (clog:create-element div "nav"))
+         (header (clog:create-element div "nav" :role "menu-bar"))
          (header-list (clog:create-unordered-list header))
          (searchbar-list (clog:create-unordered-list header))
          (_searchbar (clog:create-form-element (clog:create-list-item searchbar-list)
@@ -322,27 +333,27 @@
          (new-order-button (clog:create-button
                                (clog:create-list-item new-dropdown-list)
                                :content "New Order"
-                               :class "outline"))
+                               :class "outline btn"))
          (new-customer-button (clog:create-button
                                (clog:create-list-item new-dropdown-list)
                                :content "New Customer"
-                               :class "outline"))
+                               :class "outline btn"))
          (new-material-button (clog:create-button
                                (clog:create-list-item new-dropdown-list)
                                :content "New Material"
-                               :class "outline"))
+                               :class "outline btn"))
          (customers (clog:create-button (clog:create-list-item header-list)
-                                        :class "outline"
+                                        :class "outline btn"
                                         :content "Customers"))
          (materials (clog:create-button (clog:create-list-item header-list)
-                                        :class "outline"
+                                        :class "outline btn"
                                         :content "Materials"))
          (logout (clog:create-button (clog:create-list-item account-dropdown-list)
                                      :class
-                                     "secondary"
+                                     "secondary btn"
                                      :content "Logout"))
          (about (clog:create-button (clog:create-list-item account-dropdown-list)
-                                    :class "secondary"
+                                    :class "secondary btn"
                                     :content "About"))
          (about-modal (clog:create-dialog body))
          (about-body (clog:create-element about-modal "article"))
@@ -500,6 +511,8 @@
           ;; otherwise use local cached version
           (clog:create-child (clog:head-element (clog:html-document body))
                              *pico-css*)))
+
+    ;; (clog:load-css (clog:html-document body) "https://unpkg.com/@sakun/system.css")
 
 
     (clog:set-html-on-close body "<script>close();</script>")

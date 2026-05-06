@@ -29,10 +29,30 @@
 
 (declaim (optimize (debug 3) (safety 3)))
 
+(defun upcase-first-letter (string)
+  (if (plusp (length string))
+      (let ((downcase (map 'string #'char-downcase string)))
+        (setf (char downcase 0) (char-upcase (char downcase 0)))
+        downcase)
+      string))
+
+(defun prettify-lisp-identifier (symbol)
+  "Convert a symbol like foo-bar-bap into the string 'Foo Bar Bap'"
+  (let* ((str (map 'string (fn (ch) (if (char= #\- ch) #\Space ch))
+                   (symbol-name symbol)))
+         (words (uiop:split-string str)))
+    (loop :for word :in words
+          :appending (list (upcase-first-letter word) " ") :into results
+          :finally (return
+                     (string-right-trim
+                      " " (apply #'concatenate 'string results))))))
+
 (defclass/std config ()
   ((label)
    (value)
-   (div-class label-class input-class :std "")))
+   (div-class :std "grid container")
+   (label-class input-class :std "")
+   (div-role :std "")))
 
 (defgeneric slot-ui (config container on-update-function))
 
@@ -51,6 +71,7 @@
                  :label label
                  :value (if (value config) "on" "off")
                  :class (label-class config))))
+    (setf (clog:attribute div "role") (div-role config))
     (clog:set-on-change
      input
      (fn (obj)
@@ -65,6 +86,8 @@
                  div :file
                  :label label
                  :class (input-class config))))
+
+    (setf (clog:attribute div "role") (div-role config))
     (clog:set-on-change
      input (fn (obj)
              (a:when-let (path (ignore-errors (pathname (clog:value input))))
@@ -82,6 +105,8 @@
                  :value (if (value config) (value config) "")
                  :placeholder (placeholder config)
                  :class (input-class config))))
+
+    (setf (clog:attribute div "role") (div-role config))
 
     (clog:set-on-change
      input (fn (obj)
@@ -102,6 +127,7 @@
                 :value (if (value config) (value config) 0)
                 :label label
                 :class (input-class config))))
+    (setf (clog:attribute div "role") (div-role config))
     (when (min-value config) (a:appendf args (list :min (min-value config))))
     (when (max-value config) (a:appendf args (list :max (max-value config))))
     (let ((input (apply #'clog:create-form-element args)))
@@ -123,6 +149,7 @@
                 :value (if (value config) (value config) 0)
                 :label label
                 :class (input-class config))))
+    (setf (clog:attribute div "role") (div-role config))
     (when (min-value config) (a:appendf args (list :min (min-value config))))
     (when (max-value config) (a:appendf args (list :max (max-value config))))
     (let ((input (apply #'clog:create-form-element args)))
@@ -148,7 +175,7 @@
                                           :min (min-value config)
                                           :max (max-value config)
                                           :class (input-class config))))
-    
+    (setf (clog:attribute div "role") (div-role config))
     (clog:set-on-change
      input (fn (obj)
              (a:when-let (val (ignore-errors
@@ -172,6 +199,7 @@
                  (clog:create-form-element
                   radio-label :radio :name name :auto-place :top))))
     (declare (ignore legend))
+    (setf (clog:attribute div "role") (div-role config))
     (dolist (input inputs)
       (clog:set-on-change
        input (fn (obj)
@@ -224,13 +252,18 @@
 
 
 (defmethod slot-ui ((config config/list) container on-update-function)
-  (*let ((div (clog:create-div container :class (div-class config)))
+  (*let ((div (clog:create-div container :class (div-class config)
+                                         :style "min-height:78px;" ;; so that the detail
+                                                                   ;; has the same height
+                                                                   ;; as textboxes
+                               ))
          (details (clog:create-details div))
          (_summary (clog:create-summary details :content (label config)
                                                 :class (label-class config)))
          (blockquote (clog:create-element details "blockquote"))
          (list (clog:create-div blockquote))
          (values (pad-list (value config) (item-count config))))
+    (setf (clog:attribute div "role") (div-role config))
     (when values
       (setf (clog:details-openp details) t))
     (labels
@@ -344,8 +377,7 @@
         (type (typexpand (mop:slot-definition-type slotd))))
     (unless (label config)
       (setf (label config)
-            (map 'string (fn (ch) (if (char= #\- ch) #\Space ch))
-                 (symbol-name name))))
+            (prettify-lisp-identifier name)))
     (unless (value config)
       (when (slot-boundp instance name)
         (setf (value config) (slot-value instance name))))
