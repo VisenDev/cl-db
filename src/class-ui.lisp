@@ -27,6 +27,10 @@
            #:class-ui))
 (in-package #:open-orders.class-ui)
 
+;;;; TODO, add some sort of functionality that collects all values from forms
+;;;; rather than just relying on (set-on-change) to collect changed form values.
+
+
 (declaim (optimize (debug 3) (safety 3)))
 
 (defun upcase-first-letter (string)
