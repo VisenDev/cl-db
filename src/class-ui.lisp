@@ -58,6 +58,25 @@
    (label-class input-class :std "")
    (div-role :std "")))
 
+(defclass/std slot-ui ()
+  ((div label input)))
+
+(defmethod clog:value ((clog-form-element slot-ui))
+  (clog:value (input clog-form-element)))
+
+(defmethod slot-ui ((config config) container on-update-function)
+  (let ((result (make-instance
+                 'slot-ui :div (clog:create-div container
+                                                :class (div-class config)))))
+    (setf (label result)  (clog:create-label (div result)
+                                             :content (label config)
+                                             :class (label-class config))))
+  )
+
+
+
+
+
 (defgeneric slot-ui (config container on-update-function))
 
 (defclass/std config/toggle (config)
