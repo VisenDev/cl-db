@@ -2,7 +2,8 @@
   (:use #:cl)
   (:import-from #:open-orders.utils
                 #:fn
-                #:*let)
+                #:*let
+                #:diff)
   (:import-from #:introspect-environment
                 #:typexpand)
   (:import-from #:defclass-std
@@ -26,10 +27,6 @@
            #:options
            #:class-ui))
 (in-package #:open-orders.class-ui)
-
-;;;; TODO, add some sort of functionality that collects all values from forms
-;;;; rather than just relying on (set-on-change) to collect changed form values.
-
 
 (declaim (optimize (debug 3) (safety 3)))
 
@@ -59,25 +56,29 @@
    (div-role :std "")))
 
 (defclass/std slot-ui ()
-  ((div label input)))
+  ((div label input extract-value-function)))
 
-(defmethod clog:value ((clog-form-element slot-ui))
-  (clog:value (input clog-form-element)))
-
+(defgeneric slot-ui (config container on-update-function))
 (defmethod slot-ui ((config config) container on-update-function)
   (let ((result (make-instance
                  'slot-ui :div (clog:create-div container
                                                 :class (div-class config)))))
     (setf (label result)  (clog:create-label (div result)
                                              :content (label config)
-                                             :class (label-class config))))
-  )
+                                             :class (label-class config)))
+    (setf (clog:attribute (div result) "role") (div-role config))
 
+    (clog:set-on-change
+     (div result)
+     (fn (obj)
+       (when (extract-value-function result)
+         (a:when-let
+             (val
+              (ignore-errors
+               (funcall (extract-value-function result))))
+           (funcall on-update-function val)))))
 
-
-
-
-(defgeneric slot-ui (config container on-update-function))
+    result))
 
 (defclass/std config/toggle (config)
   ((style
@@ -85,102 +86,73 @@
     :type (member :switch :checkbox))))
 
 (defmethod slot-ui ((config config/toggle) container on-update-function)
-  (let* ((div (clog:create-div container :class (div-class config)))
-         (label (clog:create-label div :content (label config) :class (label-class config)))
-         (name (symbol-name (gensym "open-orders-toggle")))
-         (input (clog:create-form-element
-                 div :checkbox :role (if (eq (style config) :switch) "switch" "")
-                 :name name
-                 :label label
-                 :value (if (value config) "on" "off")
-                 :class (label-class config))))
-    (setf (clog:attribute div "role") (div-role config))
-    (clog:set-on-change
-     input
-     (fn (obj)
-       (funcall on-update-function (clog:checkedp input))))))
-
-(defclass/std config/filepicker (config) ())
-
-(defmethod slot-ui ((config config/filepicker) container on-update-function)
-  (let* ((div (clog:create-div container :class (div-class config)))
-         (label (clog:create-label div :content (label config) :class (label-class config)))
-         (input (clog:create-form-element
-                 div :file
-                 :label label
-                 :class (input-class config))))
-
-    (setf (clog:attribute div "role") (div-role config))
-    (clog:set-on-change
-     input (fn (obj)
-             (a:when-let (path (ignore-errors (pathname (clog:value input))))
-               (funcall on-update-function path))))))
+  (let* ((result (call-next-method)))
+    (setf (input result)
+          (clog:create-form-element
+           (div result) :checkbox
+           :role (if (eq (style config) :switch) "switch" "")
+           :label (label result)
+           :value (if (value config) "on" "off")
+           :class (input-class config)))
+    (setf (extract-value-function result)
+          (fn () (clog:checkedp (input result))))
+    result))
 
 (defclass/std config/text (config)
   ((placeholder :std "" :type string)))
 
 (defmethod slot-ui ((config config/text) container on-update-function)
-  (let* ((div (clog:create-div container :class (div-class config)))
-         (label (clog:create-label div :content (label config) :class (label-class config)))
-         (input (clog:create-form-element
-                 div :text
-                 :label label
+  (let* ((result (call-next-method)))
+    (setf (input result)
+          (clog:create-form-element
+                 (div result) :text
+                 :label (label result)
                  :value (if (value config) (value config) "")
                  :placeholder (placeholder config)
-                 :class (input-class config))))
-
-    (setf (clog:attribute div "role") (div-role config))
-
-    (clog:set-on-change
-     input (fn (obj)
-             (funcall on-update-function
-                      (format nil "~a"
-                              (clog:value input)))))))
+                 :class (input-class config)))
+    (setf (extract-value-function result)
+          (fn () (format nil "~a" (clog:value (input result)))))
+    result))
 
 (defclass config/integer (config)
   ((min :accessor min-value :initarg :min :initform nil)
    (max :accessor max-value :initarg :max :initform nil)))
 
 (defmethod slot-ui ((config config/integer) container on-update-function)
-  (let* ((div (clog:create-div container :class (div-class config)))
-         (label (clog:create-label div :content (label config)
-                                       :class (label-class config)))
+  (let* ((result (call-next-method))
          (args (list
-                div :number
+                (div result) :number
                 :value (if (value config) (value config) 0)
-                :label label
+                :label (label result)
                 :class (input-class config))))
-    (setf (clog:attribute div "role") (div-role config))
     (when (min-value config) (a:appendf args (list :min (min-value config))))
     (when (max-value config) (a:appendf args (list :max (max-value config))))
-    (let ((input (apply #'clog:create-form-element args)))
-      (clog:set-on-change
-       input (fn (obj)
-               (a:when-let (val (ignore-errors (parse-integer (clog:value input))))
-                 (funcall on-update-function val)))))))
+    (setf (input result) (apply #'clog:create-form-element args))
+    (setf (extract-value-function result)
+          (fn ()
+            (ignore-errors
+             (parse-integer (clog:value (input result))))))))
 
 (defclass config/number (config)
   ((min :accessor min-value :initarg :min :initform nil)
    (max :accessor max-value :initarg :max :initform nil)))
 
 (defmethod slot-ui ((config config/number) container on-update-function)
-  (let* ((div (clog:create-div container :class (div-class config)))
-         (label (clog:create-label div :content (label config)
-                                       :class (label-class config)))
+    (let* ((result (call-next-method))
          (args (list
-                div :number
+                (div result) :number
                 :value (if (value config) (value config) 0)
-                :label label
+                :label (label result)
                 :class (input-class config))))
-    (setf (clog:attribute div "role") (div-role config))
     (when (min-value config) (a:appendf args (list :min (min-value config))))
     (when (max-value config) (a:appendf args (list :max (max-value config))))
-    (let ((input (apply #'clog:create-form-element args)))
-      (clog:set-on-change
-       input (fn (obj)
-               (a:when-let (val (ignore-errors
-                                 (parse-float:parse-float (clog:value input) :type 'real)))
-                 (funcall on-update-function val)))))))
+    (setf (input result) (apply #'clog:create-form-element args))
+    (setf (extract-value-function result)
+          (fn ()
+            (ignore-errors
+             (parse-float:parse-float (clog:value (input result))
+                                      :type 'real))))
+      result))
 
 (defclass config/slider (config)
   ((min :accessor min-value :initarg :min
@@ -189,58 +161,43 @@
         :initform (error "This slot is mandatory"))))
 
 (defmethod slot-ui ((config config/slider) container on-update-function)
-  (let* ((div (clog:create-div container :class (div-class config)))
-         (label (clog:create-label div :content (label config)
-                                       :class (label-class config)))
-         (input (clog:create-form-element div :range
-                                          :label label
-                                          :value (or (value config) 0)
-                                          :min (min-value config)
-                                          :max (max-value config)
-                                          :class (input-class config))))
-    (setf (clog:attribute div "role") (div-role config))
-    (clog:set-on-change
-     input (fn (obj)
-             (a:when-let (val (ignore-errors
-                               (parse-integer (clog:value input))))
-               (setf (clog:inner-html label)
-                     (format nil "~a: ~a" (label config) val))
-               (funcall on-update-function val))))))
+  (let* ((result (call-next-method)))
+    (setf (input result)
+          (clog:create-form-element
+                 (div result) :range
+                 :label (label result)
+                 :value (or (value config) 0)
+                 :min (min-value config)
+                 :max (max-value config)
+                 :class (input-class config)))
+    (setf (extract-value-function result)
+          (fn ()
+            (a:when-let (val (ignore-errors
+                              (parse-integer (clog:value (input result)))))
+              (setf (clog:inner-html (label result))
+                    (format nil "~a: ~a" (label config) val))
+              val)))))
 
 (defclass/std config/radio (config)
   ((options :type list)))
 
 (defmethod slot-ui ((config config/radio) container on-update-function)
-  (let* ((div (clog:create-fieldset container :class (div-class config)))
-         (legend (clog:create-legend div :content (label config)
-                                         :class (label-class config)))
-         (name (symbol-name (gensym "open-orders-radio")))
-         (inputs
-           (loop :for option :in (reverse (options config))
-                 :for radio-label = (clog:create-label div :content option)
-                 :collect
-                 (clog:create-form-element
-                  radio-label :radio :name name :auto-place :top))))
-    (declare (ignore legend))
-    (setf (clog:attribute div "role") (div-role config))
-    (dolist (input inputs)
-      (clog:set-on-change
-       input (fn (obj)
-               (funcall on-update-function
-                        (clog:radio-value div name)))))))
-
-(defclass/std config/color (config) ())
-
-(defmethod slot-ui ((config config/color) container on-update-function)
-  (let* ((div (clog:create-div container :class (div-class config)))
-         (label (clog:create-label div :content (label config) :class (label-class config)))
-         (input (clog:create-form-element div :color :label label
-                                                     :class (input-class config))))
-
-    (clog:set-on-change
-     input (fn (obj)
-             (funcall on-update-function
-                      (clog:value input))))))
+  (let* ((result (call-next-method))
+         (name (symbol-name (gensym "radio"))))
+    (setf (input result)
+          (clog:create-div (div result) :class (input-class result)))
+    (clog:label-for (label result) (input result))
+    (loop :for option :in (reverse (options config))
+          :for radio-label = (clog:create-label (input result) :content option)
+          :do
+             (clog:create-form-element
+              (input result) :radio
+              :name name :auto-place :top
+              :label radio-label))
+    (setf (extract-value-function result)
+          (fn ()
+            (clog:radio-value (input result) name)))
+    result))
 
 (defmethod slot-ui ((config (eql :ignore)) container on-update-function)
   "Configs of value :ignore should be ignored")
@@ -273,13 +230,14 @@
           :finally (return copy))))
 
 
-
 (defmethod slot-ui ((config config/list) container on-update-function)
+
+  ;;;; TODO rewrite this function to use the new method for writing slot uis
   (*let ((div (clog:create-div container :class (div-class config)
                                          :style "min-height:78px;" ;; so that the detail
-                                                                   ;; has the same height
-                                                                   ;; as textboxes
-                               ))
+                                         ;; has the same height
+                                         ;; as textboxes
+                                         ))
          (details (clog:create-details div))
          (_summary (clog:create-summary details :content (label config)
                                                 :class (label-class config)))
@@ -318,80 +276,15 @@
 
                     (when (plusp (length values))
                       (clog:set-on-click
-                       (clog:create-button (clog:create-list-item ctrl-list) :content "Remove")
+                       (clog:create-button
+                        (clog:create-list-item ctrl-list) :content "Remove")
                        (fn (obj)
                          (setf values (subseq values 0 (1- (length values))))
                          (funcall on-update-function values)
                          (list-ui)
                          ))))))
            ))
-      (list-ui)
-      ))
-  
-  ;; (let* (;; (div (clog:create-div container))
-  ;;        ;; (label (clog:create-label div :content (label config)))
-  ;;        (toplevel (clog:create-div container))
-  ;;        (details (clog:create-details toplevel))
-  ;;        (label (clog:create-summary details :content (label config)))
-  ;;        (values (make-list (item-count config))))
-  ;;   (declare (ignore label))
-
-  ;;   (loop
-  ;;     :for i :below (item-count config)
-  ;;     :for div = (clog:create-list-item details)
-  ;;     :collect div :into divs
-  ;;     :do
-  ;;        (let ((i i))
-  ;;          (slot-ui (item-config config) div
-  ;;                   (lambda (item-value)
-  ;;                     (setf (nth i values) item-value)
-  ;;                     (funcall on-update-function values))))
-  ;;     :finally
-
-
-  ;;        ;; TODO
-
-  ;;        ;; This code is all super buggy
-  ;;        ;; I need to rethink this whole list editing system
-  ;;        (when (adjustable config)
-  ;;          (labels ((create-destroy-button (i div)
-  ;;                     (clog:set-on-click
-  ;;                      (clog:create-button div :content "X")
-  ;;                      (fn (obj)
-  ;;                        (setf values (remove-nth i values))
-  ;;                        (clog:destroy div)
-  ;;                        (setf divs (remove-nth i divs))
-  ;;                        (funcall on-update-function values)
-  ;;                        (when (plusp i)
-  ;;                          (create-destroy-button (1- (length values))
-  ;;                                                 (nth (1- (length divs)) divs)))))))
-
-  ;;            (when div
-  ;;              (create-destroy-button (1- i) div))
-
-  ;;            (clog:set-on-click
-  ;;             (clog:create-button toplevel :content "New")
-  ;;             (fn (obj)
-  ;;               (let ((div (clog:create-list-item details))
-  ;;                     (i (1- (length divs))))
-  ;;                 (a:appendf divs (list div))
-  ;;                 (slot-ui
-  ;;                  (item-config config) div
-  ;;                  (lambda (item-value)
-  ;;                    (setf (nth i values) item-value)
-  ;;                    (funcall on-update-function values)))
-  ;;                 )
-  ;;               )
-  ;;             )
-  ;;            ))
-
-  ;;     ))
-  )
-
-
-(defun diff (a b)
-  "returns the difference between two numbers"
-  (abs (- a b)))
+      (list-ui))))
 
 (defgeneric finalize-config (config instance slotd))
 (defmethod finalize-config ((config (eql :ignore)) instance slotd))
@@ -419,8 +312,8 @@
          (setf (options config) (rest type)))
 
         ;; file-author
-        ((subtypep type 'pathname)
-         (change-class config 'config/filepicker))
+        ;; ((subtypep type 'pathname)
+        ;;  (change-class config 'config/filepicker))
 
         ;; slider
         ((and (subtypep type 'integer)
@@ -475,18 +368,43 @@
         (getf plist (a:make-keyword symbol)
               default)))
 
-(defparameter *form-class* "container")
+(defclass/std class-ui ()
+  ((slot-ui-list)
+   (slot-name-list)
+   (instance)))
+
+(defmethod finalize-values ((class-ui class-ui))
+  "Loop through all the slot-ui elements and save their values to the instance,
+   this ensures the instance has the most up to date values entered into the slot-uis.
+   This function should be called before things like serializing/saving the values of 
+   the instance"
+  (loop :for slot :in (slot-ui-list class-ui)
+        :for name :in (slot-name-list class-ui)
+        :do (setf (slot-value (instance class-ui) name)
+                  (funcall (extract-value-function slot))))
+  (instance class-ui))
 
 (defmethod class-ui (slot-config-plist
-                      (instance standard-object) (container clog:clog-obj))
-  (let ((form (clog:create-form container :class *form-class*)))
+                     (instance standard-object) (container clog:clog-obj))
+  (let ((form (clog:create-form container :class *form-class*))
+        (result (make-instance 'class-ui)))
+    (setf (instance result) instance)
     (dolist (slotd (reverse (mop:class-slots (class-of instance))))
       (let* ((name (mop:slot-definition-name slotd))
              (config (getf* slot-config-plist name (make-instance 'config))))
         (finalize-config config instance slotd)
-        (slot-ui config form
-                 (lambda (new-value)
-                   (setf (slot-value instance name) new-value)))))))
+        (push (slot-ui config form
+                       (lambda (new-value)
+                         (setf (slot-value instance name) new-value)))
+              (slot-ui-list result))
+        (push name (slot-name-list result))
+        result))))
+
+
+
+;;;; ============== TEST ===============
+;;;; =                                 =
+;;;; ===================================
 
 (defclass/std person ()
   ((name hobbies siblings phone email address notes)

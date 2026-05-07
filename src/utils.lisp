@@ -3,7 +3,8 @@
   (:local-nicknames (#:a #:alexandria))
   (:export #:*let
            #:fn
-           #:defpackage*))
+           #:defpackage*
+           #:diff))
 (in-package #:open-orders.utils)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -39,6 +40,10 @@
   `(lambda ,args
      (declare (ignorable ,@args))
      ,@body))
+
+(defun diff (a b)
+  "returns the difference between two numbers"
+  (abs (- a b)))
 
 ;; Local Variables:
 ;; eval: (font-lock-add-keywords
