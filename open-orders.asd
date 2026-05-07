@@ -20,6 +20,7 @@
                (:module "src"
                 :serial t
                 :components ((:file "utils")
+                             (:file "tab-bar")
                              (:file "paths")
                              (:file "sql-table")
                              (:file "tables")

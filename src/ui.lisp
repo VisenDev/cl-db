@@ -11,10 +11,10 @@
                     (#:auth #:clog-auth)
                     (#:sql #:open-orders.sql-table)
                     (#:paths #:open-orders.paths)
-                    (#:tbl #:open-orders.tables)))
+                    (#:tbl #:open-orders.tables)
+                    (#:tab-bar #:open-orders.tab-bar)))
 (in-package #:open-orders.ui)
 (declaim (optimize (debug 3)))
-
 
 (deftype page-function () '(function (clog:clog-obj connection) t))
 
@@ -270,15 +270,24 @@
   (*let ((div (clog:create-div body :class "container"))
          (header (clog:create-element div "nav"))
          (header-list (clog:create-unordered-list header))
+         (tab-bar (tab-bar:create-tab-bar
+                   div '("Edit" "Shipping" "Packing List" "Additional Documents")))
          (_back (clog:set-on-click (clog:create-button
-                                   (clog:create-list-item header-list)
-                                   :content "Back")
-                (fn (obj) (on-logged-in-screen body conn))))
+                                    (clog:create-list-item header-list)
+                                    :content "Back")
+                                   (fn (obj) (on-logged-in-screen body conn))))
          (open-order (make-instance 'tbl:open-order))
          (part (make-instance 'tbl:part))
          (content (clog:create-div div :class "grid"))
-         ;; (content (clog:create-table-row (clog:create-table div)))
          )
+
+    (clog:set-on-click
+     tab-bar
+     (fn (name)
+       (setf (clog:visiblep content) (string-equal name "Edit"))))
+    ;; (setf (clog:attribute tab-bar "role") "group")
+    ;; (setf (clog:attribute edit-button "disabled") "")
+
     (open-orders.class-ui:class-ui '() part
                                    (clog:create-fieldset content :class "grid")
                                    )
