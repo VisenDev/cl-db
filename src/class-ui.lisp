@@ -63,9 +63,10 @@
   (let ((result (make-instance
                  'slot-ui :div (clog:create-div container
                                                 :class (div-class config)))))
-    (setf (label result)  (clog:create-label (div result)
-                                             :content (label config)
-                                             :class (label-class config)))
+    (when (label config)
+      (setf (label result)  (clog:create-label (div result)
+                                               :content (label config)
+                                               :class (label-class config))))
     (setf (clog:attribute (div result) "role") (div-role config))
 
     (clog:set-on-change
@@ -231,23 +232,58 @@
 
 (defmethod slot-ui ((config config/list) container on-update-function)
   (let ((result (call-next-method))
-        ;; (value-list (pad-list (value-config) (item-count config)))
-        ;; (ui-list nil)
         (uis '())
-        (values '())
-        )
+        (values '()))
     (setf (input result)
           (clog:create-div (div result) :class (input-class config)))
-    (labels ((push-ui (ui-config i)
+    (labels ((push-ui (ui-config i value)
+               (unless (value ui-config)
+                 (setf (value ui-config) value))
                (push (slot-ui ui-config (input result)
                               (lambda (new-value)
                                 (setf (nth i values) new-value)))
-                     uis))
-             (pop-ui () (pop uis)))
+                     uis)
+               (push value values))
+             (pop-ui ()
+               (when uis
+                 (clog:destroy (div (pop uis))))))
+
+      (setf (extract-value-function result)
+            (fn ()
+              (assert (= (length values) (length uis)))
+              (loop :for ui :in uis
+                    :for i :from 0
+                    :do (setf (nth i values)
+                              (funcall (extract-value-function ui))))
+              values))
+
+      (when (adjustable config)
+        (let ((controls-div (clog:create-div (input result))))
+          (setf (clog:attribute controls-div "role") "group")
+          (clog:set-on-click (clog:create-button controls-div :content "Add New"
+                                                              :class "outline")
+                             (fn (obj)
+                               (push-ui (duplicate-instance (item-config config))
+                                        (length uis) nil)))
+          (clog:set-on-click
+           (clog:create-button controls-div :content "Remove"
+                                            :class "outline")
+
+           (fn (obj)
+             (when (string-equal
+                    (clog:js-query
+                     (div config)
+                     (format
+                      nil
+                      "confirm(\"Are you sure you want to remove element: ~a?\");"
+                      (first (funcall (extract-value-function result)))))
+                    "true")
+               (pop-ui))))))
+
 
       (dotimes (i (max (length (value config))
                        (item-count config)))
-        (push-ui (duplicate-instance (item-config config)) i))
+        (push-ui (duplicate-instance (item-config config)) i (nth i (value config))))
       )
     )
   )
