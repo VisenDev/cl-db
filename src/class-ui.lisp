@@ -229,62 +229,84 @@
                       (slot-value instance slot))
           :finally (return copy))))
 
-
 (defmethod slot-ui ((config config/list) container on-update-function)
+  (let ((result (call-next-method))
+        ;; (value-list (pad-list (value-config) (item-count config)))
+        ;; (ui-list nil)
+        (uis '())
+        (values '())
+        )
+    (setf (input result)
+          (clog:create-div (div result) :class (input-class config)))
+    (labels ((push-ui (ui-config i)
+               (push (slot-ui ui-config (input result)
+                              (lambda (new-value)
+                                (setf (nth i values) new-value)))
+                     uis))
+             (pop-ui () (pop uis)))
 
-  ;;;; TODO rewrite this function to use the new method for writing slot uis
-  (*let ((div (clog:create-div container :class (div-class config)
-                                         :style "min-height:78px;" ;; so that the detail
-                                         ;; has the same height
-                                         ;; as textboxes
-                                         ))
-         (details (clog:create-details div))
-         (_summary (clog:create-summary details :content (label config)
-                                                :class (label-class config)))
-         (blockquote (clog:create-element details "blockquote"))
-         (list (clog:create-div blockquote))
-         (values (pad-list (value config) (item-count config))))
-    (setf (clog:attribute div "role") (div-role config))
-    (when values
-      (setf (clog:details-openp details) t))
-    (labels
-        ((list-ui ()
-           (clog:destroy-children list)
-           (loop
-             :for val :in values
-             :for i :from 0
-             :do
-                (let ((c (duplicate-instance (item-config config)))
-                      (i i))
-                  (setf (label c) "")
-                  (setf (value c) val)
-                  (slot-ui c list
-                           (lambda (new-value)
-                             (setf (nth i values) new-value)
-                             (funcall on-update-function values))))
-             :finally
-                (when (adjustable config)
-                  (let* ((nav (clog:create-element list "nav"))
-                         (ctrl-list (clog:create-unordered-list nav)))
-                    (clog:set-on-click
-                     (clog:create-button (clog:create-list-item ctrl-list)
-                                         :content "Add")
-                     (fn (obj)
-                       (a:appendf values (list nil))
-                       (funcall on-update-function values)
-                       (list-ui)))
+      (dotimes (i (max (length (value config))
+                       (item-count config)))
+        (push-ui (duplicate-instance (item-config config)) i))
+      )
+    )
+  )
 
-                    (when (plusp (length values))
-                      (clog:set-on-click
-                       (clog:create-button
-                        (clog:create-list-item ctrl-list) :content "Remove")
-                       (fn (obj)
-                         (setf values (subseq values 0 (1- (length values))))
-                         (funcall on-update-function values)
-                         (list-ui)
-                         ))))))
-           ))
-      (list-ui))))
+;; (defmethod slot-ui ((config config/list) container on-update-function)
+
+;; ;;;; TODO rewrite this function to use the new method for writing slot uis
+;;   (*let ((div (clog:create-div container :class (div-class config)
+;;                                          :style "min-height:78px;" ;; so that the detail
+;;                                ;; has the same height
+;;                                ;; as textboxes
+;;                                ))
+;;          (details (clog:create-details div))
+;;          (_summary (clog:create-summary details :content (label config)
+;;                                                 :class (label-class config)))
+;;          (blockquote (clog:create-element details "blockquote"))
+;;          (list (clog:create-div blockquote))
+;;          (values (pad-list (value config) (item-count config))))
+;;     (setf (clog:attribute div "role") (div-role config))
+;;     (when values
+;;       (setf (clog:details-openp details) t))
+;;     (labels
+;;         ((list-ui ()
+;;            (clog:destroy-children list)
+;;            (loop
+;;              :for val :in values
+;;              :for i :from 0
+;;              :do
+;;                 (let ((c (duplicate-instance (item-config config)))
+;;                       (i i))
+;;                   (setf (label c) "")
+;;                   (setf (value c) val)
+;;                   (slot-ui c list
+;;                            (lambda (new-value)
+;;                              (setf (nth i values) new-value)
+;;                              (funcall on-update-function values))))
+;;              :finally
+;;                 (when (adjustable config)
+;;                   (let* ((nav (clog:create-element list "nav"))
+;;                          (ctrl-list (clog:create-unordered-list nav)))
+;;                     (clog:set-on-click
+;;                      (clog:create-button (clog:create-list-item ctrl-list)
+;;                                          :content "Add")
+;;                      (fn (obj)
+;;                        (a:appendf values (list nil))
+;;                        (funcall on-update-function values)
+;;                        (list-ui)))
+
+;;                     (when (plusp (length values))
+;;                       (clog:set-on-click
+;;                        (clog:create-button
+;;                         (clog:create-list-item ctrl-list) :content "Remove")
+;;                        (fn (obj)
+;;                          (setf values (subseq values 0 (1- (length values))))
+;;                          (funcall on-update-function values)
+;;                          (list-ui)
+;;                          ))))))
+;;            ))
+;;       (list-ui))))
 
 (defgeneric finalize-config (config instance slotd))
 (defmethod finalize-config ((config (eql :ignore)) instance slotd))
@@ -386,7 +408,7 @@
 
 (defmethod class-ui (slot-config-plist
                      (instance standard-object) (container clog:clog-obj))
-  (let ((form (clog:create-form container :class *form-class*))
+  (let ((form (clog:create-form container))
         (result (make-instance 'class-ui)))
     (setf (instance result) instance)
     (dolist (slotd (reverse (mop:class-slots (class-of instance))))
