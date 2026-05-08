@@ -206,7 +206,7 @@
   "Configs of value :ignore should be ignored")
 
 (defclass/std config/list (config)
-  ((item-config :std (make-instance 'config/text :label ""))
+  ((item-config :std (make-instance 'config/text))
    (item-count :std 0)
    (adjustable :std t)))
 
@@ -237,7 +237,8 @@
         (uis '())
         (values '()))
     (setf (input result)
-          (clog:create-div (div result) :class (input-class config)))
+          (clog:create-element (div result) "blockquote"
+                               :class (input-class config)))
     (labels ((push-ui (ui-config i value)
                (unless (value ui-config)
                  (setf (value ui-config) value))
@@ -248,7 +249,8 @@
                (push value values))
              (pop-ui ()
                (when uis
-                 (clog:destroy (div (pop uis))))))
+                 (clog:destroy (div (pop uis)))
+                 (pop values))))
 
       (setf (extract-value-function result)
             (fn ()
@@ -262,30 +264,36 @@
       (when (adjustable config)
         (let ((controls-div (clog:create-div (input result))))
           (setf (clog:attribute controls-div "role") "group")
-          (clog:set-on-click (clog:create-button controls-div :content "Add New"
-                                                              :class "outline")
+          (clog:set-on-click
+           (clog:create-button controls-div :content "Add New"
+                                            :class "outline")
                              (fn (obj)
-                               (push-ui (duplicate-instance (item-config config))
-                                        (length uis) nil)))
+                               (push-ui
+                                (duplicate-instance (item-config config))
+                                (length uis) nil)))
           (clog:set-on-click
            (clog:create-button controls-div :content "Remove"
                                             :class "outline")
 
            (fn (obj)
-             (when (string-equal
-                    (clog:js-query
-                     (div config)
-                     (format
-                      nil
-                      "confirm(\"Are you sure you want to remove element: ~a?\");"
-                      (first (funcall (extract-value-function result)))))
-                    "true")
+             (when
+                 (or (null (first values))
+                     (string-equal "" (first values))
+                     (string-equal
+                      (clog:js-query
+                       (div result)
+                       (format
+                        nil
+                        "confirm(\"Remove '~a' from list?\");"
+                        (first (funcall (extract-value-function result)))))
+                      "true"))
                (pop-ui))))))
 
 
       (dotimes (i (max (length (value config))
                        (item-count config)))
-        (push-ui (duplicate-instance (item-config config)) i (nth i (value config))))
+        (push-ui (duplicate-instance (item-config config))
+                 i (nth i (value config))))
       )
     )
   )
