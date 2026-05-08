@@ -30,6 +30,7 @@
 
 (declaim (optimize (debug 3) (safety 3)))
 
+(declaim (ftype (function (string) string) upcase-first-letter))
 (defun upcase-first-letter (string)
   (if (plusp (length string))
       (let ((downcase (map 'string #'char-downcase string)))
@@ -37,6 +38,7 @@
         downcase)
       string))
 
+(declaim (ftype (function (symbol) string) prettify-lisp-identifier))
 (defun prettify-lisp-identifier (symbol)
   "Convert a symbol like foo-bar-bap into the string 'Foo Bar Bap'"
   (let* ((str (map 'string (fn (ch) (if (char= #\- ch) #\Space ch))
@@ -514,7 +516,7 @@
                      :age (make-instance 'config/slider :min 0 :max 100)
                      :siblings (make-instance 'config/radio
                                               :options '(one two three four five+))
-                     :favorite-color (make-instance 'config/color)
+                     ;; :favorite-color (make-instance 'config/color)
                      :hobbies (make-instance 'config/list :item-count 5))
                *person* body)
        
