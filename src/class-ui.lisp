@@ -455,11 +455,37 @@
 (defmethod class-ui (slot-config-plist
                      (instance standard-object) (container clog:clog-obj))
   (let ((form (clog:create-form container))
-        (result (make-instance 'class-ui)))
+        (result (make-instance 'class-ui))
+        (slots (reverse (mop:class-slots (class-of instance)))))
+
+    (labels ((symbol-position (symbol list)
+               (or (position symbol list)
+                   (position (a:make-keyword symbol) list)))
+             (config-order-sort-predicate (lhs rhs)
+               (declare (type mop:standard-slot-definition lhs rhs))
+               (let ((lhs-i (symbol-position
+                             (mop:slot-definition-name lhs)
+                             slot-config-plist))
+                     (rhs-i (symbol-position
+                             (mop:slot-definition-name rhs)
+                             slot-config-plist)))
+                 (cond ((and lhs-i rhs-i)
+                        (< lhs-i rhs-i))
+                       (lhs-i
+                        t)
+                       (rhs-i
+                        nil)
+                       (t nil)))))
+
+      ;; Sort slots such that they show up in the order they appear in
+      ;; the config list
+      (setf slots (stable-sort slots #'config-order-sort-predicate)))
+    
     (setf (instance result) instance)
-    (dolist (slotd (reverse (mop:class-slots (class-of instance))))
+    (dolist (slotd slots)
       (let* ((name (mop:slot-definition-name slotd))
-             (config (getf* slot-config-plist name (make-instance 'config))))
+             (config (or (getf* slot-config-plist name)
+                         (make-instance 'config))))
         (finalize-config config instance slotd)
         (push (slot-ui config form
                        (lambda (new-value)

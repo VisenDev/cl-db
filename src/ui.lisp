@@ -77,7 +77,12 @@
       ;; Only allowing clearing new customers, not customers being edited
       (setf (clog:visiblep clear) nil))
     
-    (open-orders.class-ui:class-ui (list :id :ignore) customer form-div)
+    (open-orders.class-ui:class-ui
+     (list :id :ignore
+           :name '()
+           :contact-first-name (make-instance 'open-orders.class-ui:config/text
+                                              :label "First Name of Contact:"))
+     customer form-div)
     (setf save (clog:create-button div :content "Save"))
     (setf (clog:visiblep body) t)
 
@@ -157,7 +162,8 @@
       ;; Only allowing clearing new materials, not materials being edited
       (setf (clog:visiblep clear) nil))
     
-    (open-orders.class-ui:class-ui (list :id :ignore) material form-div)
+    (open-orders.class-ui:class-ui (list :id :ignore)
+                                   material form-div)
     (setf save (clog:create-button div :content "Save"))
     (setf (clog:visiblep body) t)
 
