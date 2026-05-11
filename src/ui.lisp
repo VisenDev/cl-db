@@ -12,26 +12,40 @@
                     (#:sql #:open-orders.sql-table)
                     (#:paths #:open-orders.paths)
                     (#:tbl #:open-orders.tables)
-                    (#:tab-bar #:open-orders.tab-bar)))
+                    (#:tab-bar #:open-orders.tab-bar))
+  (:export
+   #:connection
+   #:user
+   #:db
+   #:db-future
+   #:menu
+   #:page-function-stack
+   #:page-function
+   #:page-back
+   #:page-go
+   #:authentication-token-create
+   #:menu-bar-generate
+   #:on-logged-in-screen
+   #:on-login-screen))
 (in-package #:open-orders.ui)
 (declaim (optimize (debug 3)))
 
-(deftype page-function () '(function (clog:clog-obj connection) t))
 
 (defclass/std connection ()
-  ((user db db-future menu page-function-stack)))
+  ((user db)))
 
-(declaim (ftype page-function on-logged-in-screen)) ;;forward declaration
+;; (declaim (ftype page-function on-logged-in-screen))
+;;forward declaration
 
-(defun page-back (body conn &optional (default #'on-logged-in-screen))
-  "Go to the last page on the stack"
-  (if (page-function-stack conn)
-      (funcall (pop (page-function-stack conn)) body conn)
-      (funcall default body conn)))
+;; (defun page-back (body conn &optional (default #'on-logged-in-screen))
+;;   "Go to the last page on the stack"
+;;   (if (page-function-stack conn)
+;;       (funcall (pop (page-function-stack conn)) body conn)
+;;       (funcall default body conn)))
 
-(defun page-go (body conn &key from to)
-  (push from (page-function-stack conn))
-  (funcall to body conn))
+;; (defun page-go (body conn &key from to)
+;;   (push from (page-function-stack conn))
+;;   (funcall to body conn))
 
 
 (defun authentication-token-create ()
@@ -268,39 +282,6 @@
               (page-go body conn :from #'on-materials-screen
                                  :to #'on-edit-material-screen)))))))
 
-(defclass/std open-order-editable (tbl:part tbl:open-order)
-  () (:metaclass sql:sql-table))
-
-(defun  on-edit-open-order-screen (body conn)
-  (clog:destroy-children body)
-  (*let ((div (clog:create-div body :class "container"))
-         (header (clog:create-element div "nav"))
-         (header-list (clog:create-unordered-list header))
-         (tab-bar (tab-bar:create-tab-bar
-                   div '("Edit" "Shipping" "Packing List" "Additional Documents")))
-         (_back (clog:set-on-click (clog:create-button
-                                    (clog:create-list-item header-list)
-                                    :content "Back")
-                                   (fn (obj) (on-logged-in-screen body conn))))
-         (open-order (make-instance 'tbl:open-order))
-         (part (make-instance 'tbl:part))
-         (content (clog:create-div div :class "grid"))
-         )
-
-    (clog:set-on-click
-     tab-bar
-     (fn (name)
-       (setf (clog:visiblep content) (string-equal name "Edit"))))
-    ;; (setf (clog:attribute tab-bar "role") "group")
-    ;; (setf (clog:attribute edit-button "disabled") "")
-
-    (open-orders.class-ui:class-ui '() part
-                                   (clog:create-fieldset content :class "grid")
-                                   )
-    (open-orders.class-ui:class-ui '() open-order
-                                   (clog:create-fieldset content :class "grid")
-                                   )))
-
 
 (defparameter *source-code-message*
   "The Source Code is Freely Available <a href=\"https://github.com/visendev/open-orders\" target=\"_blank\">Here</a>")
@@ -340,6 +321,8 @@
          (_account-dropdown-summary (clog:create-summary account-dropdown
                                                          :content "More..."))
          (account-dropdown-list (clog:create-unordered-list account-dropdown))
+         (back-button (when (page-function-stack conn)
+                        (clog:create-button header-list :content "Back")))
          (new-dropdown (clog:create-details
                         (clog:create-list-item header-list)
                         :class "dropdown"))
@@ -385,13 +368,19 @@
          (_5 (clog:create-child about-content *lisp-logo-image*))
          (about-modal-done (clog:create-button (clog:create-element about-body "footer")
                                                :content "Done")))
+
+    (when back-button
+      (clog:set-on-click back-button
+                         (fn (obj)
+                           (page-back body conn))))
     (clog:set-on-click about
                        (fn (obj)
                          (setf (clog:dialog-openp about-modal) t)))
     (clog:set-on-click about-modal-done (fn (obj)
                                           (setf (clog:dialog-openp about-modal) nil)))
 
-    (clog:set-on-click new-order-button (fn (obj) (on-edit-open-order-screen body conn)))
+    (clog:set-on-click new-order-button (fn (obj) 
+                                          (on-edit-open-order-screen body conn)))
     (clog:set-on-click new-customer-button
                        (fn (obj) (on-edit-customer-screen body conn)))
     (clog:set-on-click new-material-button
@@ -404,7 +393,10 @@
                          (clog-auth:remove-authentication-token body)
                          (on-login-screen body conn)))))
 
-(defun on-logged-in-screen (body conn)
+(defun on-logged-in-screen (body &aux conn)
+  (a:if-let (c (clog:connection-data-item body "conn"))
+    (setf conn c)
+    (setf (clog:url (clog:location body)) "/"))
   (assert (user conn))
   (clog:destroy-children body)
   (menu-bar-generate body conn)
@@ -416,18 +408,22 @@
     (loop :for order :in open-orders
           :do (clog:create-table-column (clog:create-table-row tbl) :content (tbl:part order)))))
 
-(defun on-login-screen (body conn)
+(defun on-login-screen (body &aux conn)
+
+  ;; Get conn
+  (a:if-let (c (clog:connection-data-item body "conn"))
+    (setf conn c)
+    (setf (clog:url (clog:location body)) "/home"))
   
   ;; If valid authentication token is found, go to logged in screen
   (a:when-let (tok (clog-auth:get-authentication-token body))
-    (setf (db conn) (tbl:database-connect))
     (a:when-let (found-user
                  (sql:exec-select 'tbl:user 'tbl:authentication-token tok
                                   (db conn)))
       (setf (user conn)
             found-user)
-      (return-from on-login-screen 
-        (on-logged-in-screen body conn))))
+      (return-from on-login-screen
+        (setf (clog:url (clog:location body)) "/home"))))
   
   (clog:destroy-children body)
   (*let ((div (clog:create-div body :class "container"))
@@ -453,10 +449,6 @@
                  div :content "Login" :style "margin-top:20px;"))
          (msg (clog:create-p
                div :content "" :style "padding:10px;color:red;")))
-
-    (unless (db conn)
-      (setf (db conn) (tbl:database-connect)))
-
 
     ;; Reset msg on keyboard input
     (clog:set-on-key-down form (fn (obj event)
@@ -491,7 +483,9 @@
                     
                     ;; goto logged in screen
                     (setf (user conn) user-record)
-                    (on-logged-in-screen body conn))
+                    (setf (clog:url (clog:location body)) "/home")
+                    ;; (on-logged-in-screen body conn)
+                    )
                    (t (setf (clog:inner-html msg) "Incorrect Password")))))
              (handle-keydown (obj event)
                (a:when-let (key (getf event :key))
@@ -518,6 +512,9 @@
 (defun on-new-window (body)
   
   (let ((conn (make-instance 'connection)))
+
+    (setf (clog:connection-data-item body "conn") conn)
+    
     ;; Load css
     (when *use-css*
       (if *use-external-css*
@@ -527,17 +524,18 @@
           (clog:create-child (clog:head-element (clog:html-document body))
                              *pico-css*)))
 
-    ;; (clog:load-css (clog:html-document body) "https://unpkg.com/@sakun/system.css")
-
-
     (clog:set-html-on-close body "<script>close();</script>")
-    (setf (clog:title (clog:html-document body)) "Overhead")
+    (setf (clog:title (clog:html-document body)) "Open Orders")
     (clog:enable-clog-popup)            ; To allow browser popups
 
     ;; loading bar
     (clog:create-child body "<div aria-busy=\"true\"/>")
 
-    (on-login-screen body conn)
+    ;; load database
+    (setf (db conn) (tbl:database-connect))
+
+    (setf (clog:url (clog:location body)))
+    (on-login-screen body)
 
     ;; Block until body has been closed
     (clog:run body)
@@ -547,4 +545,6 @@
 
 (defun test ()
   (clog:initialize #'on-new-window)
+  (clog:set-on-new-window #'on-login-screen :path "/login")
+  (clog:set-on-new-window #'on-logged-in-screen :path "/home")
   (clog:open-browser))
