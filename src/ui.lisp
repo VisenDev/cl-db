@@ -31,8 +31,7 @@
 (declaim (optimize (debug 3)))
 
 
-(defclass/std connection ()
-  ((user db)))
+
 
 ;; (declaim (ftype page-function on-logged-in-screen))
 ;;forward declaration

@@ -45,7 +45,9 @@
            #:contact-first-name
            #:contact-last-name
            #:contact-email
-           #:contact-phone)
+           #:contact-phone
+           #:connection
+           #:db)
   )
 (in-package #:open-orders.tables)
 
@@ -116,6 +118,9 @@
    (material :type integer :references (material id))
    (run-status :type string))
   (:metaclass sql:sql-table))
+
+(defclass/std connection ()
+  ((user db)))
 
 (defun database-connect ()
   (let ((db (dbi:connect :sqlite3 :database-name paths:*db-path*)))
