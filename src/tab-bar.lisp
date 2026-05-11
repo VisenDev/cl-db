@@ -1,4 +1,4 @@
-(open-orders.utils:defpackage* #:open-orders.tab-bar
+(uiop:define-package #:open-orders.tab-bar
   (:use #:cl)
   (:import-from #:defclass-std
                 #:defclass/std

@@ -1,4 +1,4 @@
-(open-orders.utils:defpackage* #:open-orders.tables
+(uiop:define-package #:open-orders.tables
   (:use #:cl)
   (:import-from #:defclass-std
                 #:defclass/std

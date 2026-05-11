@@ -1,9 +1,8 @@
-(cl:defpackage #:open-orders.utils
+(uiop:define-package #:open-orders.utils
   (:use #:cl)
   (:local-nicknames (#:a #:alexandria))
   (:export #:*let
            #:fn
-           #:defpackage*
            #:diff))
 (in-package #:open-orders.utils)
 
@@ -16,16 +15,6 @@
     (if (listp binding)
         (first binding)
         binding)))
-
-(defvar *package-cache* (make-hash-table))
-(defmacro defpackage* (name &body clauses)
-  "Defpackage except it also deletes to the package if it already exists
-   to avoid package export errors"
-  (a:when-let (existing (gethash name *package-cache*))
-    (unless (equalp clauses existing)
-     (delete-package name)))
-  (setf (gethash name *package-cache*) clauses)
-  `(defpackage ,name ,@clauses))
 
 (defmacro *let (bindings &body body)
   "let* except it allows underscore prefixed vars to be ignored automatically"
@@ -44,10 +33,3 @@
 (defun diff (a b)
   "returns the difference between two numbers"
   (abs (- a b)))
-
-;; Local Variables:
-;; eval: (font-lock-add-keywords
-;;        'lisp-mode
-;;        '(("(\\(fn\\|\\*let\\)\\_>"
-;;           1 font-lock-keyword-face)))
-;; End:

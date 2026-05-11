@@ -1,4 +1,4 @@
-(open-orders.utils:defpackage* #:open-orders.class-ui
+(uiop:define-package #:open-orders.class-ui
   (:use #:cl)
   (:import-from #:open-orders.utils
                 #:fn

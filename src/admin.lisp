@@ -1,4 +1,4 @@
-(open-orders.utils:defpackage* #:open-orders.admin
+(uiop:define-package #:open-orders.admin
   (:use #:cl)
   (:nicknames #:ooa)
   (:local-nicknames (#:a #:alexandria)
