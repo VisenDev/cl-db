@@ -20,13 +20,15 @@
                (:module "src"
                 :serial t
                 :components ((:file "utils")
-                             (:file "tab-bar")
+                             ;; (:file "tab-bar")
                              (:file "paths")
                              (:file "sql-table")
                              (:file "tables")
                              (:file "admin")
                              (:file "class-ui")
-                             (:file "ui")
+                             (:file "auth")
+                             (:file "home")
+                             ;; (:file "ui")
                              (:file "main")))))
 
 (defsystem "open-orders/executable"

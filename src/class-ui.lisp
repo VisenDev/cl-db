@@ -11,8 +11,7 @@
                 #:class/std)
   (:local-nicknames (#:a #:alexandria)
                     (#:mop #:closer-mop))
-  (:export #:config/checkbox
-           #:slot-ui
+  (:export #:slot-ui
            #:config/toggle
            #:style
            #:config/filepicker
@@ -25,7 +24,9 @@
            #:config/slider
            #:config/radio
            #:options
-           #:class-ui))
+           #:class-ui
+           #:config/password
+           #:finalize-values))
 (in-package #:open-orders.class-ui)
 
 (declaim (optimize (debug 3) (safety 3)))
@@ -53,34 +54,19 @@
 (defclass/std config ()
   ((label)
    (value)
-   (div-class :std "grid container")
-   (label-class input-class :std "")
-   (div-role :std "")))
+   (label-class input-class :std "")))
 
 (defclass/std slot-ui ()
-  ((div label input extract-value-function)))
+  ((label input extract-value-function)))
 
-(defgeneric slot-ui (config container on-update-function))
-(defmethod slot-ui ((config config) container on-update-function)
-  (let ((result (make-instance
-                 'slot-ui :div (clog:create-div container
-                                                :class (div-class config)))))
+(defgeneric slot-ui (config container))
+(defmethod slot-ui ((config config) container)
+  (let ((result (make-instance 'slot-ui)))
     (when (label config)
-      (setf (label result)  (clog:create-label (div result)
-                                               :content (label config)
-                                               :class (label-class config))))
-    (setf (clog:attribute (div result) "role") (div-role config))
-
-    (clog:set-on-change
-     (div result)
-     (fn (obj)
-       (when (extract-value-function result)
-         (a:when-let
-             (val
-              (ignore-errors
-               (funcall (extract-value-function result))))
-           (funcall on-update-function val)))))
-
+      (setf (label result)
+            (clog:create-label container
+                               :content (label config)
+                               :class (label-class config))))
     result))
 
 (defclass/std config/toggle (config)
@@ -88,11 +74,11 @@
     :std :checkbox
     :type (member :switch :checkbox))))
 
-(defmethod slot-ui ((config config/toggle) container on-update-function)
+(defmethod slot-ui ((config config/toggle) container)
   (let* ((result (call-next-method)))
     (setf (input result)
           (clog:create-form-element
-           (div result) :checkbox
+           container :checkbox
            :role (if (eq (style config) :switch) "switch" "")
            :label (label result)
            :value (if (value config) "on" "off")
@@ -104,14 +90,28 @@
 (defclass/std config/text (config)
   ((placeholder :std "" :type string)))
 
-(defmethod slot-ui ((config config/text) container on-update-function)
+(defmethod slot-ui ((config config/text) container)
   (let* ((result (call-next-method)))
     (setf (input result)
           (clog:create-form-element
-                 (div result) :text
+                 container :text
                  :label (label result)
                  :value (if (value config) (value config) "")
                  :placeholder (placeholder config)
+                 :class (input-class config)))
+    (setf (extract-value-function result)
+          (fn () (format nil "~a" (clog:value (input result)))))
+    result))
+
+(defclass config/password (config) ())
+
+(defmethod slot-ui ((config config/password) container)
+  (let* ((result (call-next-method)))
+    (setf (input result)
+          (clog:create-form-element
+                 container :password
+                 :label (label result)
+                 :value (if (value config) (value config) "")
                  :class (input-class config)))
     (setf (extract-value-function result)
           (fn () (format nil "~a" (clog:value (input result)))))
@@ -121,10 +121,10 @@
   ((min :accessor min-value :initarg :min :initform nil)
    (max :accessor max-value :initarg :max :initform nil)))
 
-(defmethod slot-ui ((config config/integer) container on-update-function)
+(defmethod slot-ui ((config config/integer) container)
   (let* ((result (call-next-method))
          (args (list
-                (div result) :number
+                container :number
                 :value (if (value config) (value config) 0)
                 :label (label result)
                 :class (input-class config))))
@@ -140,10 +140,10 @@
   ((min :accessor min-value :initarg :min :initform nil)
    (max :accessor max-value :initarg :max :initform nil)))
 
-(defmethod slot-ui ((config config/number) container on-update-function)
+(defmethod slot-ui ((config config/number) container)
     (let* ((result (call-next-method))
          (args (list
-                (div result) :number
+                container :number
                 :value (if (value config) (value config) 0)
                 :label (label result)
                 :class (input-class config))))
@@ -163,11 +163,11 @@
    (max :accessor max-value :initarg :max
         :initform (error "This slot is mandatory"))))
 
-(defmethod slot-ui ((config config/slider) container on-update-function)
+(defmethod slot-ui ((config config/slider) container)
   (let* ((result (call-next-method)))
     (setf (input result)
           (clog:create-form-element
-                 (div result) :range
+                 container :range
                  :label (label result)
                  :value (or (value config) 0)
                  :min (min-value config)
@@ -184,11 +184,11 @@
 (defclass/std config/radio (config)
   ((options :type list)))
 
-(defmethod slot-ui ((config config/radio) container on-update-function)
+(defmethod slot-ui ((config config/radio) container)
   (let* ((result (call-next-method))
          (name (symbol-name (gensym "radio"))))
     (setf (input result)
-          (clog:create-div (div result) :class (input-class result)))
+          (clog:create-div container :class (input-class result)))
     (clog:label-for (label result) (input result))
     (loop :for option :in (reverse (options config))
           :for radio-label = (clog:create-label (input result) :content option)
@@ -202,7 +202,7 @@
             (clog:radio-value (input result) name)))
     result))
 
-(defmethod slot-ui ((config (eql :ignore)) container on-update-function)
+(defmethod slot-ui ((config (eql :ignore)) container)
   "Configs of value :ignore should be ignored")
 
 (defclass/std config/list (config)
@@ -232,12 +232,12 @@
                       (slot-value instance slot))
           :finally (return copy))))
 
-(defmethod slot-ui ((config config/list) container on-update-function)
+(defmethod slot-ui ((config config/list) container)
   (let ((result (call-next-method))
         (uis '())
         (values '()))
     (setf (input result)
-          (clog:create-element (div result) "blockquote"
+          (clog:create-element container "blockquote"
                                :class (input-class config)))
     (labels ((push-ui (ui-config i value)
                (unless (value ui-config)
@@ -281,7 +281,7 @@
                      (string-equal "" (first values))
                      (string-equal
                       (clog:js-query
-                       (div result)
+                       container
                        (format
                         nil
                         "confirm(\"Remove '~a' from list?\");"
@@ -488,11 +488,13 @@
                          (make-instance 'config))))
         (finalize-config config instance slotd)
         (push (slot-ui config form
-                       (lambda (new-value)
-                         (setf (slot-value instance name) new-value)))
+                       ;; (lambda (new-value)
+                       ;;   (setf (slot-value instance name) new-value))
+                       )
               (slot-ui-list result))
         (push name (slot-name-list result))
-        result))))
+        ))
+    result))
 
 
 

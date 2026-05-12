@@ -9,40 +9,41 @@
   (:export #:main))
 (in-package #:open-orders.main)
 
+(defparameter *css*
+  "<style>
+
+:root {color-scheme: light dark;}
+* {pad:2px;margin:2px;}
+label {min-width: 100px;display:block;}
+form {display:grid;max-width:300px;grid-template-columns:100px 1fr;}
+
+  </style>")
 
 (defun on-new-window (body)
-  
-  (let ((conn (make-instance 'connection)))
+
+  (let ((conn (make-instance 'tbl:connection
+                             :db (tbl:database-connect))))
 
     (setf (clog:connection-data-item body "conn") conn)
-    
-    ;; Load css
-    (when *use-css*
-      (if *use-external-css*
-          (clog:load-css (clog:html-document body) *pico-css-url*)
 
-          ;; otherwise use local cached version
-          (clog:create-child (clog:head-element (clog:html-document body))
-                             *pico-css*)))
-
+    ;;setup page
+    (clog:create-child (clog:head-element (clog:html-document body)) *css*)
     (clog:set-html-on-close body "<script>close();</script>")
     (setf (clog:title (clog:html-document body)) "Open Orders")
     (clog:enable-clog-popup)            ; To allow browser popups
 
-    ;; loading bar
-    (clog:create-child body "<div aria-busy=\"true\"/>")
-
-    ;; load database
-    (setf (db conn) (tbl:database-connect))
-
-    (setf (clog:url (clog:location body)))
-    (on-login-screen body)
+    (open-orders.auth:on-login body)
 
     ;; Block until body has been closed
     (clog:run body)
-    (when (db conn)
-      (tbl:database-disconnect (db conn)))))
+    (when (tbl:db conn)
+p      (tbl:database-disconnect (tbl:db conn)))))
 
 (defun main ()
-  (clog:n)
+  (clog:initialize #'on-new-window)
+  (clog:set-on-new-window
+   (lambda (body)
+     (clog:url-replace (clog:location body) "/"))
+   :path "/home")
+  (clog:open-browser)
   )
