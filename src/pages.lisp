@@ -13,30 +13,77 @@
   (:export
    #:on-home
    #:on-login
-   #:setup-popstate-handler))
+   #:setup-popstate-handler
+   #:setup-page-urls))
 (in-package #:open-orders.pages)
 
-(defun on-home (body &aux conn)
-  (setf conn (clog:connection-data-item body "conn"))
+(declaim (optimize (debug 3)))
 
-  ;; Check if user is logged in
-  (unless (tbl:user conn)
-    (clog:url-rewrite (clog:window body) "/")
-    (return-from on-home (on-login body)))
+(defun create-menu-bar (body name-action-plist)
+  (let ((header (clog:create-div body :style "display:flex;flex-direction:row;")))
+    (a:doplist (name action name-action-plist)
+      (clog:set-on-click (clog:create-button header :content name)
+                         (let ((action action))
+                           (fn (obj)
+                             (funcall action body)))))))
 
-  (clog:destroy-children body)
-  
-  (clog:set-on-click (clog:create-button body :content "Logout")
-                     (fn (obj)
-                       (auth:logout body)
-                       (setf (tbl:user conn) nil)
-                       (clog:url-rewrite (clog:window body) "/")
-                       (on-login body)))
-  (clog:create-p body :content "Home"))
+
+
+(defclass/std page ()
+  ((name :type string)
+   (action)
+   (url :std nil)
+   (show-menu-p :type boolean :std t)
+   (require-login-p :type boolean :std t)))
+
+(defun make-page (&rest args &key name action url show-menu-p require-login-p)
+  (declare (ignore name action url show-menu-p require-login-p))
+  (apply #'make-instance 'page args))
+
+(defparameter *pages*
+  (list (make-page :name "Logout"
+                   :action (fn (body) (auth:logout body (auth:get-connection body))))
+        (make-page :name "Login"
+                   :action 'on-login
+                   :require-login-p nil
+                   :show-menu-p nil)
+        (make-page :name "Home"
+                   :action 'on-home
+                   :url "/home")
+        (make-page :name "About"
+                   :action 'on-about
+                   :url "/about")))
+
+(defun find-page (name)
+  "Lookup a pages definition by name"
+  (find name *pages* :key #'name))
+
+(defun initialize-page-content (body page)
+  "Get connection, destroy children, update url, and create a menu bar"
+  (let ((conn (auth:get-logged-in-connection body)))
+    (unless conn
+      (return-from initialize-page-content))
+    (clog:destroy-children body)
+    (when (show-menu-p page)
+      (create-menu-bar body (loop :for p :in *pages*
+                                  :appending (list (name p) (action p)))))
+    (when (url page)
+      (clog:url-push-state (clog:window body) (url page)))
+    conn))
+
+(defun on-about (body)
+  (let ((conn (initialize-page-content body (find-page "About"))))
+    (declare (ignorable conn))
+    (clog:create-p body :content "Written By Wess Burnett")))
+
+(defun on-home (body)
+  (let ((conn (initialize-page-content body (find-page "Home"))))
+    (declare (ignorable conn))
+    (clog:create-p body :content "Home")))
 
 
 (defun on-login (body &aux conn)
-  (setf conn (clog:connection-data-item body "conn"))
+  (setf conn (auth:get-connection body))
   (clog:destroy-children body)
 
   (let* ((tok (clog-auth:get-authentication-token body))
@@ -89,12 +136,19 @@ window.addEventListener('popstate', function(e) {
 });
 "))
 
-(defun popstate-handler (body page)
-  (a:eswitch (page :test 'string-equal)
-    ("/" (on-login body))
-    ("/home" (on-home body))))
-
+(defun setup-page-urls ()
+  (dolist (page *pages*)
+    (when (url page)
+      (let ((page page))
+        (clog:set-on-new-window
+         (lambda (body)
+           (funcall (action page) body))
+         :path (url page))))))
 
 (defun setup-popstate-handler (body)
   (set-on-popstate
-   body (a:curry #'popstate-handler body)))
+   body (fn (page-url)
+          (let ((page (find page-url *pages* :key #'url)))
+            (if page
+                (funcall (action page) body)
+                (funcall (action (find-page "Login")) body))))))

@@ -15,7 +15,9 @@
    #:login-form
    #:username
    #:password
-   #:stay-logged-in))
+   #:stay-logged-in
+   #:get-connection
+   #:get-logged-in-connection))
 (in-package #:open-orders.auth)
 
 (declaim (optimize (debug 3)))
@@ -41,6 +43,7 @@
                   (password login-form)
                   (tbl:hash user-record)))))
       (when valid
+        (setf (tbl:user conn) user-record)
         (if (stay-logged-in login-form)
             
             ;; then
@@ -54,5 +57,25 @@
             (clog-auth:remove-authentication-token body))
         valid))))
 
-(defun logout (body)
-  (clog-auth:remove-authentication-token body))
+
+(defun logout (body conn)
+  (clog-auth:remove-authentication-token body)
+  (setf (tbl:user conn) nil)
+  (clog:url-replace (clog:location body) "/"))
+
+(declaim (ftype (function (clog:clog-body) (or null tbl:connection)) get-connection))
+(defun get-connection (body)
+  (let ((conn (clog:connection-data-item body "conn")))
+    (unless conn
+      (clog:url-replace (clog:location body) "/"))
+    conn))
+
+(declaim (ftype (function (clog:clog-body) (or null tbl:connection))
+                get-logged-in-connection))
+(defun get-logged-in-connection (body)
+  "Like get-connection but it ensures the user is logged in"
+  (let ((conn (get-connection body)))
+    (when conn
+      (unless (tbl:user conn)
+        (clog:url-replace (clog:location body) "/")))
+    conn))
