@@ -13,9 +13,9 @@
   "<style>
 
 :root {color-scheme: light dark;}
-* {pad:2px;margin:2px;}
-label {min-width: 100px;display:block;}
-form {display:grid;max-width:300px;grid-template-columns:100px 1fr;}
+* {pad:2px;margin:2px;font-size:13pt;font-family:sans-serif;}
+label {min-width: 120px;display:block;}
+form {display:grid;max-width:360px;grid-template-columns:120px 1fr;}
 
   </style>")
 
@@ -32,12 +32,13 @@ form {display:grid;max-width:300px;grid-template-columns:100px 1fr;}
     (setf (clog:title (clog:html-document body)) "Open Orders")
     (clog:enable-clog-popup)            ; To allow browser popups
 
-    (open-orders.auth:on-login body)
+    (open-orders.pages:setup-url-handler body)
+    (open-orders.pages:on-login body)
 
     ;; Block until body has been closed
     (clog:run body)
     (when (tbl:db conn)
-p      (tbl:database-disconnect (tbl:db conn)))))
+      (tbl:database-disconnect (tbl:db conn)))))
 
 (defun main ()
   (clog:initialize #'on-new-window)

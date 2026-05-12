@@ -27,7 +27,7 @@
                              (:file "admin")
                              (:file "class-ui")
                              (:file "auth")
-                             (:file "home")
+                             (:file "pages")
                              ;; (:file "ui")
                              (:file "main")))))
 
