@@ -1,3 +1,5 @@
+(load (merge-pathnames "vendored/asdf.lisp" (uiop:getcwd)))
+
 (let ((*standard-output* (make-broadcast-stream)))
   #+sbcl (declaim (sb-ext:muffle-conditions sb-ext:compiler-note))
   #+sbcl (declaim (sb-ext:muffle-conditions cl:warning))

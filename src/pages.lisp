@@ -35,19 +35,19 @@
   (setf conn (clog:connection-data-item body "conn"))
   (clog:destroy-children body)
 
-  ;; CHECK FOR AUTH TOKEN
-  (a:if-let (tok (clog-auth:get-authentication-token body))
+  (let* ((tok (clog-auth:get-authentication-token body))
+         (found-user
+           (when tok (sql:exec-select 'tbl:user 'tbl:authentication-token tok
+                                      (tbl:db conn)))))
 
-    ;; LOGIN USING AUTH TOKEN
-    (a:when-let (found-user
-                 (sql:exec-select 'tbl:user 'tbl:authentication-token tok
-                                  (tbl:db conn)))
+    (when found-user
       (setf (tbl:user conn)
             found-user)
       (clog:url-push-state (clog:window body) "/home")
-      (on-home body))
+      (return-from on-login (on-home body)))
 
-    ;; OTHERWISE LOGIN NORMALLY
+      ;; OTHERWISE LOGIN NORMALLY
+
     (let*
         ((instance (make-instance 'auth:login-form))
          (ui (class-ui:class-ui
@@ -61,13 +61,15 @@
       (clog:set-on-click (clog:create-button body :content "Submit")
                          (fn (obj)
                            (class-ui:finalize-values ui)
-                           (if (auth:test-credentials body conn instance)
-                               (progn
-                                 (clog:url-push-state
-                                  (clog:window body) "/home")
-                                 (on-home body))
-                               (setf (clog:inner-html msg) "Login Failed")
-                               ))))))
+                           (let ((login-successful-p
+                                   (auth:test-credentials body conn instance)))
+                             (cond
+                               (login-successful-p
+                                (clog:url-push-state
+                                 (clog:window body) "/home")
+                                (on-home body))
+                               (t
+                                (setf (clog:inner-html msg) "Login Failed")))))))))
 
 (defun set-on-popstate (body handler)
   

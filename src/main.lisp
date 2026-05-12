@@ -41,7 +41,9 @@ form {display:grid;max-width:360px;grid-template-columns:120px 1fr;}
       (tbl:database-disconnect (tbl:db conn)))))
 
 (defun main ()
-  (clog:initialize #'on-new-window)
+  (clog:initialize #'on-new-window
+                   :static-root (asdf:system-relative-pathname "open-orders"
+                                                               "./static-files/"))
   (clog:set-on-new-window
    (lambda (body)
      (clog:url-replace (clog:location body) "/"))
