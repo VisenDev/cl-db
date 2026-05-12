@@ -32,7 +32,7 @@ form {display:grid;max-width:360px;grid-template-columns:120px 1fr;}
     (setf (clog:title (clog:html-document body)) "Open Orders")
     (clog:enable-clog-popup)            ; To allow browser popups
 
-    (open-orders.pages:setup-url-handler body)
+    (open-orders.pages:setup-popstate-handler body)
     (open-orders.pages:on-login body)
 
     ;; Block until body has been closed

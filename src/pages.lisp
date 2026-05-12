@@ -13,11 +13,13 @@
   (:export
    #:on-home
    #:on-login
-   #:setup-url-handler))
+   #:setup-popstate-handler))
 (in-package #:open-orders.pages)
 
 (defun on-home (body &aux conn)
   (setf conn (clog:connection-data-item body "conn"))
+  ;; TODO check if user is logged in here
+  
   (clog:destroy-children body)
   
   (clog:set-on-click (clog:create-button body :content "Logout")
@@ -67,11 +69,27 @@
                                (setf (clog:inner-html msg) "Login Failed")
                                ))))))
 
+(defun set-on-popstate (body handler)
+  
+  (setf (gethash "body:popstate" (clog:connection-data body))
+        handler)
+
+  (clog:js-execute
+   body
+   "
+window.addEventListener('popstate', function(e) {
+  ws.send(
+    'E:body:popstate ' + window.location.pathname
+  );
+});
+"))
+
+(defun popstate-handler (body page)
+  (a:eswitch (page :test 'string-equal)
+    ("/" (on-login body))
+    ("/home" (on-home body))))
 
 
-(defun setup-url-handler (body)
-  (clog:set-on-pop-state (clog:window body)
-                         (lambda (&rest objs)
-                           (format t "popstate objs: ~a~%" objs)
-                           ))
-  )
+(defun setup-popstate-handler (body)
+  (set-on-popstate
+   body (a:curry #'popstate-handler body)))
