@@ -18,17 +18,21 @@
 
 (defun on-home (body &aux conn)
   (setf conn (clog:connection-data-item body "conn"))
-  ;; TODO check if user is logged in here
-  
+
+  ;; Check if user is logged in
+  (unless (tbl:user conn)
+    (clog:url-rewrite (clog:window body) "/")
+    (return-from on-home (on-login body)))
+
   (clog:destroy-children body)
   
   (clog:set-on-click (clog:create-button body :content "Logout")
                      (fn (obj)
                        (auth:logout body)
-                       (clog:url-push-state (clog:window body) "/")
+                       (setf (tbl:user conn) nil)
+                       (clog:url-rewrite (clog:window body) "/")
                        (on-login body)))
-  (clog:create-p body :content "Home")
-  )
+  (clog:create-p body :content "Home"))
 
 
 (defun on-login (body &aux conn)
@@ -43,7 +47,7 @@
     (when found-user
       (setf (tbl:user conn)
             found-user)
-      (clog:url-push-state (clog:window body) "/home")
+      (clog:url-rewrite (clog:window body) "/home")
       (return-from on-login (on-home body)))
 
       ;; OTHERWISE LOGIN NORMALLY
@@ -65,8 +69,7 @@
                                    (auth:test-credentials body conn instance)))
                              (cond
                                (login-successful-p
-                                (clog:url-push-state
-                                 (clog:window body) "/home")
+                                (clog:url-rewrite (clog:window body) "/home")
                                 (on-home body))
                                (t
                                 (setf (clog:inner-html msg) "Login Failed")))))))))
