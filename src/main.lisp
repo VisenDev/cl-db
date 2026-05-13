@@ -25,6 +25,13 @@ form {display:grid;max-width:360px;grid-template-columns:120px 1fr;}
 (defun on-new-window (body)
   "Initial entry point"
 
+
+  ;; Early return if connection has already been set up
+  (when (clog:connection-data-item body "conn")
+    (open-orders.pages:on-login body)
+    (return-from on-new-window))
+
+  ;; Setup new connection
   (let ((conn (make-instance 'tbl:connection
                              :db (tbl:database-connect))))
 

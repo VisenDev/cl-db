@@ -20,7 +20,8 @@
 (declaim (optimize (debug 3)))
 
 (defun create-menu-bar (body name-action-plist)
-  (let ((header (clog:create-div body :style "display:flex;flex-direction:row;")))
+  (let ((header (clog:create-div
+                 body :style "display:flex;flex-direction:row;")))
     (a:doplist (name action name-action-plist)
       (clog:set-on-click (clog:create-button header :content name)
                          (let ((action action))
@@ -34,67 +35,127 @@
    (action)
    (url :std nil)
    (show-menu-p :type boolean :std t)
-   (require-login-p :type boolean :std t)))
-
-(defun make-page (&rest args &key name action url show-menu-p require-login-p)
-  (declare (ignore name action url show-menu-p require-login-p))
-  (apply #'make-instance 'page args))
+   (menu-button-p :type boolean :std t)
+   (login-required-p :type boolean :std t)))
 
 (defparameter *pages*
-  (list (make-page :name "Logout"
-                   :action (fn (body) (auth:logout body (auth:get-connection body))))
-        (make-page :name "Login"
-                   :action 'on-login
-                   :require-login-p nil
-                   :show-menu-p nil)
-        (make-page :name "Home"
-                   :action 'on-home
-                   :url "/home")
-        (make-page :name "About"
-                   :action 'on-about
-                   :url "/about")))
+  (list (make-instance 'page :name "Logout"
+                             :action (fn (body)
+                                       (auth:logout
+                                        body (clog:connection-data-item
+                                              body "conn"))))
+        (make-instance 'page :name "Login"
+                             :action 'on-login
+                             :login-required-p nil
+                             :show-menu-p nil
+                             :url "/login"
+                             :menu-button-p nil)
+        (make-instance 'page :name "Home"
+                             :action 'on-home
+                             :url "/home")
+        (make-instance 'page :name "About"
+                             :action 'on-about
+                             :url "/about")
+        (make-instance 'page :name "Customers"
+                             :action 'on-customers
+                             :url "/customers")))
 
 (defun find-page (name)
   "Lookup a pages definition by name"
-  (find name *pages* :key #'name))
+  (find name *pages* :key #'name :test 'equal))
+
+(declaim (ftype (function (clog:clog-body page)
+                          (or null tbl:connection))
+                initialize-page-content))
 
 (defun initialize-page-content (body page)
   "Get connection, destroy children, update url, and create a menu bar"
-  (let ((conn (auth:get-logged-in-connection body)))
+
+  (let ((conn (clog:connection-data-item body "conn")))
+
+    ;; Create root connection if needed
     (unless conn
+      (clog:url-replace (clog:location body) "/")
       (return-from initialize-page-content))
+
+    ;; Redirect to login if needed
+    (when (login-required-p page)
+      (unless (tbl:user conn)
+        (on-login body)
+        (return-from initialize-page-content)))
+
+    ;; Setup Page content
     (clog:destroy-children body)
     (when (show-menu-p page)
       (create-menu-bar body (loop :for p :in *pages*
-                                  :appending (list (name p) (action p)))))
+                                  :when (menu-button-p p)
+                                    :appending (list (name p) (action p)))))
+
+    ;; Rename Url
     (when (url page)
-      (clog:url-push-state (clog:window body) (url page)))
+      (clog:url-rewrite (clog:window body) (url page)))
     conn))
 
+
+
+
 (defun on-about (body)
-  (let ((conn (initialize-page-content body (find-page "About"))))
-    (declare (ignorable conn))
-    (clog:create-p body :content "Written By Wess Burnett")))
+  (a:when-let (conn (initialize-page-content body (find-page "About")))
+    (clog:create-p body :content "Written By Wess Burnett")
+    (clog:create-p body :content "Copyright 2026")
+    (clog:create-p body :content "Licensed under the GPL-3.0")))
+
+(defun on-edit (body)
+  (a:when-let (conn (initialize-page-content body (find-page "About")))
+    (clog:create-p body :content "TODO")))
+
+(defun on-customers (body)
+  (a:when-let (conn (initialize-page-content body (find-page "Customers")))
+    (let ((customers (sql:exec-select-all 'tbl:customer (tbl:db conn)))
+          (tbl (clog:create-table body)))
+      (dolist (c customers)
+        (let* ((row (clog:create-table-row tbl))
+               (btn (clog:create-p (clog:create-table-column row)
+                                        :content (tbl:name c)
+                                        :style "cursor:pointer;")))
+          (clog:set-on-mouse-over
+           btn (fn (obj)
+                 (setf (clog:style btn "text-decoration")
+                       "underline")))
+          (clog:set-on-mouse-leave
+           btn (fn (obj)
+                 (setf (clog:style btn "text-decoration")
+                       "none")))
+          (clog:set-on-click
+           btn
+           (let ((c c))
+             (declare (ignore c))
+             (fn (obj)
+               ;; TODO finish this
+               (on-edit body))))
+          )
+        )
+      )
+    )
+  )
 
 (defun on-home (body)
-  (let ((conn (initialize-page-content body (find-page "Home"))))
-    (declare (ignorable conn))
+  (a:when-let (conn (initialize-page-content body (find-page "Home")))
     (clog:create-p body :content "Home")))
 
 
 (defun on-login (body &aux conn)
-  (setf conn (auth:get-connection body))
-  (clog:destroy-children body)
+  (setf conn (initialize-page-content body (find-page "Login")))
 
   (let* ((tok (clog-auth:get-authentication-token body))
          (found-user
-           (when tok (sql:exec-select 'tbl:user 'tbl:authentication-token tok
-                                      (tbl:db conn)))))
+           (when tok
+             (sql:exec-select 'tbl:user 'tbl:authentication-token tok
+                              (tbl:db conn)))))
 
     (when found-user
       (setf (tbl:user conn)
             found-user)
-      (clog:url-rewrite (clog:window body) "/home")
       (return-from on-login (on-home body)))
 
       ;; OTHERWISE LOGIN NORMALLY
@@ -109,17 +170,17 @@
                     :stay-logged-in (make-instance 'class-ui:config/toggle))
               instance body))
          (msg (clog:create-p body :content "")))
-      (clog:set-on-click (clog:create-button body :content "Submit")
-                         (fn (obj)
-                           (class-ui:finalize-values ui)
-                           (let ((login-successful-p
-                                   (auth:test-credentials body conn instance)))
-                             (cond
-                               (login-successful-p
-                                (clog:url-rewrite (clog:window body) "/home")
-                                (on-home body))
-                               (t
-                                (setf (clog:inner-html msg) "Login Failed")))))))))
+      (clog:set-on-click
+       (clog:create-button body :content "Submit")
+       (fn (obj)
+         (class-ui:finalize-values ui)
+         (let ((login-successful-p
+                 (auth:test-credentials body conn instance)))
+           (cond
+             (login-successful-p
+              (on-home body))
+             (t
+              (setf (clog:inner-html msg) "Login Failed")))))))))
 
 (defun set-on-popstate (body handler)
   
