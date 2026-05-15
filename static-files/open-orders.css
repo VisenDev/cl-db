@@ -1,0 +1,52 @@
+body {
+    background-color: white;
+    margin:0;
+    font-family: sans-serif;
+}
+
+.menu-button {
+    background: lightgrey;
+    font-family: sans-serif;
+    margin: 20px;
+    margin-left: 20px;
+    margin-right: 20px;
+    padding: 0px;
+    border-radius: 5px;
+    font-size: 150%;
+}
+
+.menu-bar {
+    display: flex;
+    flex-direction:row;
+
+}
+
+.exit-button {
+    text-decoration: underline;
+    position:absolute;
+    right: 10px;
+    top: -10px;
+    font-size: 120%;
+}
+
+.exit-button:hover {
+    color: gray;
+    cursor: pointer;
+}
+
+.table-header-bar {
+    background-image: linear-gradient(to bottom, royalblue, darkblue);
+    font-size: 150%;
+    display:flex;
+    flex-direction:row;
+    margin-left: 20px;
+    margin-right: 0px;
+    width: calc(100vw - 50px);
+    padding: 5px;
+    border-radius: 5px;
+}
+
+.table-header-bar-item {
+    margin-left: 20px;
+    margin-right: 20px;
+}

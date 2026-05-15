@@ -23,7 +23,8 @@
   (let ((header (clog:create-div
                  body :style "display:flex;flex-direction:row;")))
     (a:doplist (name action name-action-plist)
-      (clog:set-on-click (clog:create-button header :content name)
+      (clog:set-on-click (clog:create-button header :content name
+                                             :class "menu-button")
                          (let ((action action))
                            (fn (obj)
                              (funcall action body)))))))
@@ -95,7 +96,6 @@
     (when (url page)
       (clog:url-rewrite (clog:window body) (url page)))
     conn))
-
 
 
 
