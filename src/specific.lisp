@@ -26,6 +26,15 @@
                               content))))
     b))
 
+(class/std open-order-table-item
+  date code part-number po-number line status
+  file-number qty)
+
+(defun generate-random-open-order-table-item ()
+  (make-instance 'open-order-table-item
+                 )
+  )
+
 (defun on-new-window (body)
   (load-css (html-document body) "/open-orders.css")
 
