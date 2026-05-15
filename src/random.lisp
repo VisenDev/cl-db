@@ -66,7 +66,8 @@
 (defparameter *flowers*
   '("Rose" "Daisy" "Violet" "Dandelion" "Briar"
     "Sunflower" "Petunia" "Tulip" "Bluebonnet"
-    "Forget Me Not" "Sunwheel" "Indian Paintbrush"))
+    "Forget Me Not" "Sunwheel" "Indian Paintbrush"
+    "Mayflower"))
 
 (defparameter *rocks*
   '("Granite" "Diorite" "Slate" "Mica" "Limestone" "Basalt"))
@@ -82,34 +83,48 @@
     "Jackson" "Adams" "Monroe" "Madison" "Jefferson"
     "Washington"))
 
-(defparameter *street-suffixes*
+(defparameter *vegetables*
+  '("Pumpkin" "Squash" "Butternut" "Radish" "Melon"
+    "Cucumber" "Carrot"))
+
+(defparameter *basic-street-names*
+  (concatenate 'list *trees* *flowers* *rocks* *presidents*
+               *vegetables*))
+
+(defparameter *street-types*
   '("Street" "Avenue" "Parkway" "Circle" "Way" "Loop"
-    "Highway"))
+    "Highway" "Trail" "Path"))
+
+(defun random-street-type ()
+  (random-value *street-types*))
+
+(defparameter *full-name-suffixes*
+  '("Junior" "Senior" "the Second" "the Third"))
+
+(defparameter *nicknames*
+  '("Bobby" "Johnny" "Dan" "Danny" "Bob" "Jon"
+    "Bubba" "Jose" "Big" "Mikey" "Slim" "Little" "Hands"
+    "Tiny" "Scar" "Biggie" "Jim" "Buck" "99"))
 
 (defparameter *single-letter-street-name-chance* 1/15)
 (defparameter *numerical-street-name-chance* 1/15)
+(defparameter *street-name-full-name-chance* 1/20)
+(defparameter *street-name-highway-chance* 1/20)
 
-(defun upcase)
+;; initials for first name like JK or DH
+;; suffixes for full name like Junior, Senior, The Second
+;; nicknames in the middle like "Bobby", or "Jonny"
+
+(defun upcase-first-letter (string)
+  (let ((copy (copy-seq string)))
+    (setf (char copy 0) (char-upcase (char string 0)))
+    copy))
 
 (defun random-capital-letter ()
   (make-string
    1 :initial-element
    (code-char (+ (char-code #\A)
                  (random (- (char-code #\Z) (char-code #\A)))))))
-
-(defun street ()
-  (concatenate
-   'string
-   (cond ((rarely *single-letter-street-name-chance*)
-          (format nil "~a." (random-capital-letter)))
-         ((rarely *numerical-street-name-chance*)
-          (format nil "~:R" (random 100)))
-         (t (random-value (concatenate 'list
-                                       *trees* *rocks*
-                                       *flowers* *presidents*))))
-   " "
-   (random-value *street-suffixes*))
-  )
 
 (defparameter *vowels* '(#\a #\e #\i #\o #\u))
 (defun vowelp (letter) (member letter *vowels*))
@@ -123,7 +138,9 @@
 
 (defparameter *last-name-prefix-chance* 1/15)
 (defparameter *first/last-swap-chance* 1/10)
-(defparameter *change-letter-chance* 1/12)
+(defparameter *name-change-letter-chance* 1/12)
+(defparameter *full-name-suffix-chance* 1/15)
+(defparameter *nickname-chance* 1/28)
 
 (defun random-index (list)
   (random (length list)))
@@ -140,7 +157,7 @@
 (defun random-consonant ()
   (random-value *consonants*))
 
-(defun random-vowel ()p
+(defun random-vowel ()
   (random-value *vowels*))
 
 (defun change-random-letter (string)
@@ -158,7 +175,7 @@
     copy))
 
 (defun rarely-change-letter (string)
-  (if (rarely *change-letter-chance*)
+  (if (rarely *name-change-letter-chance*)
       (change-random-letter string)
       string))
 
@@ -176,10 +193,60 @@
         *first-names*
         *last-names*))))
 
-(defun last-name-prefix ()
+(defun rarely-last-name-prefix ()
   (if (rarely *last-name-prefix-chance*)
       (random-value *last-name-prefixes*)
       ""))
 
+(defun rarely-nickname ()
+  (if (rarely *nickname-chance*)
+      (format nil " \"~a\"" (random-value *nicknames*))
+      ""))
+
+(defun rarely-full-name-suffix ()
+  (if (rarely *full-name-suffix-chance*)
+      (concatenate 'string " "
+                   (random-value *full-name-suffixes*))
+      ""))
+
+(defparameter *three-initials-chance* 1/20)
+
+(defun initials ()
+  (concatenate
+   'string
+   (random-capital-letter)
+   "."
+   (random-capital-letter)
+   "."
+   (if (rarely *three-initials-chance*)
+       (concatenate 'string (random-capital-letter) ".")
+       "")))
+
+(defparameter *initials-as-first-name-chance* 1/20)
+
 (defun full-name ()
-  (concatenate 'string (first-name) " " (last-name-prefix) (last-name)))
+  (concatenate
+   'string
+   (if (rarely *initials-as-first-name-chance*)
+       (initials)
+       (first-name))
+   (rarely-nickname)
+   " " (rarely-last-name-prefix) (last-name)
+   (rarely-full-name-suffix)))
+
+
+(defun street ()
+  (cond
+    ((rarely *single-letter-street-name-chance*)
+     (format nil "Avenue ~a" (random-capital-letter)))
+    ((rarely *numerical-street-name-chance*)
+     (upcase-first-letter
+      (format nil "~:R ~a" (random 100) (random-street-type))))
+    ((rarely *street-name-full-name-chance*)
+     (concatenate 'string (full-name)
+                  " " (random-value *street-suffixes*)))
+    ((rarely *street-name-highway-chance*)
+     (format nil "Highway ~a" (random 10000)))
+    (t (concatenate 'string (random-value *basic-street-names*)
+                    " " (random-value *street-suffixes*)))))
+
