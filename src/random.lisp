@@ -88,7 +88,12 @@
     "Cucumber" "Carrot"))
 
 (defparameter *berry-types* 
-  '("Hack" "Huckle" "Straw" "Blue" "Black" "Mul"))
+  '("Hack" "Huckle" "Straw" "Blue" "Black" "Mul"
+     "Rasp"))
+
+(defparameter *outdoor-places*
+  '("Meadow" "Mountain" "Forest" "Woods" "Patch"
+    "Knoll" "Plains"))
 
 (defparameter *basic-street-names*
   (concatenate 'list *trees* *flowers* *rocks* *presidents*
