@@ -87,6 +87,9 @@
   '("Pumpkin" "Squash" "Butternut" "Radish" "Melon"
     "Cucumber" "Carrot"))
 
+(defparameter *berry-types* 
+  '("Hack" "Huckle" "Straw" "Blue" "Black" "Mul"))
+
 (defparameter *basic-street-names*
   (concatenate 'list *trees* *flowers* *rocks* *presidents*
                *vegetables*))
