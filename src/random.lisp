@@ -80,6 +80,28 @@
 (defparameter *rocks*
   '("Granite" "Diorite" "Slate" "Mica" "Limestone" "Basalt"))
 
+(defparameter *cities*
+  '("Clovis" "Milwalkee" "Seattle" "Paris"
+    "Austin" "San Antonio" "Chicago" "New York"
+    "Capetown" "Beijing" "Tokyo" "Mexico City"
+    "London" "Rome" "Vienna"))
+
+(defparameter *rivers*
+  '("Guadalupe" "Concho" "Missisippi" "Colorado"
+    "Thames" "Red" "Brazos" "Hudson" "Snake" "Potomak"
+    "Danube" "Jordan" "Rubicon" "Vulga" "San Saba"))
+
+(defparameter *states* 
+  '("Alabama" "Alaska" "Arizona" "Arkansas" "California"
+    "Colorado" "Connecticut" "Delaware" "Florida" "Georgia" "Hawaii"
+    "Idaho" "Illinois" "Indiana" "Iowa" "Kansas" "Kentucky"
+    "Louisiana" "Maine" "Maryland" "Massachusetts" "Michigan" "Minnesota"
+    "Mississippi" "Missouri" "Montana" "Nebraska" "Nevada" "New Hampshire"
+    "New Jersey" "New Mexico" "New York" "North Carolina" "North Dakota" "Ohio"
+    "Oklahoma" "Oregon" "Pennsylvania" "Rhode Island" "South Carolina" "South Dakota"
+    "Tennessee" "Texas" "Utah" "Vermont" "Virginia" "Washington"
+    "West Virginia" "Wisconsin" "Wyoming"))
+
 (defparameter *presidents* 
   '("Bush" "Clinton" "Reagan" "Carter" "Ford"
     "Nixon" "Johnson" "Fitzgerald" "Eisenhower" "Truman"
@@ -87,7 +109,7 @@
     "Taft" "Roosevelt" "McKinley" "Cleveland" "Harrison"
     "Cleveland" "Arthur" "Garfield" "Hayes" "Grant"
     "Johnson" "Lincoln" "Buchanan" "Pierce" "Fillmore"
-    "Taylor" "Polk" "Tyler" "Harrison" "Van"
+    "Taylor" "Polk" "Tyler" "Harrison"
     "Jackson" "Adams" "Monroe" "Madison" "Jefferson"
     "Washington"))
 
@@ -117,7 +139,8 @@
 
 (defparameter *basic-street-names*
   (concatenate 'list *trees* *flowers* *rocks* *presidents*
-               *vegetables*))
+               *vegetables* *berries* *rivers* *states*
+               *cities*))
 
 (defparameter *other-street-types*
   '("Avenue" "Parkway" "Circle" "Way" "Loop"
@@ -134,9 +157,9 @@
 (defparameter *street-name-other-street-type-chance* 2/3)
 (defparameter *street-name-single-letter-chance* 1/25)
 (defparameter *street-name-numerical-chance* 1/15)
-(defparameter *street-name-full-name-chance* 1/20)
-(defparameter *street-name-highway-chance* 1/20)
-(defparameter *street-name-outdoor-place-chance* 1/15)
+(defparameter *street-name-full-name-chance* 1/10)
+(defparameter *street-name-highway-chance* 1/8)
+(defparameter *street-name-outdoor-place-chance* 1/4)
 
 (defun random-street-type ()
   (if (rarely *street-name-other-street-type-chance*)
@@ -278,7 +301,7 @@
      (concatenate 'string (full-name)
                   " " (random-street-type)))
     ((rarely *street-name-highway-chance*)
-     (format nil "Highway ~a" (random 10000)))
+     (format nil "Highway ~a" (random 100)))
     ((rarely *street-name-outdoor-place-chance*)
      (concatenate 'string (random-value *outdoor-place-prefixes*)
                   " " (random-value *outdoor-places*)
