@@ -1,5 +1,13 @@
-(defpackage #:open-orders.random
-  (:use #:cl))
+(uiop:define-package #:open-orders.random
+  (:use #:cl)
+  (:export
+   #:street
+   #:full-name
+   #:n-digit-number
+   #:date
+   #:get-current-year
+   #:capital-letter
+   #:random-value))
 (in-package #:open-orders.random)
 
 (defparameter *first-names*
@@ -89,35 +97,51 @@
 
 (defparameter *berry-types* 
   '("Hack" "Huckle" "Straw" "Blue" "Black" "Mul"
-     "Rasp"))
+     "Rasp" "Cran" "Elder" "Goji" "Dew"))
+(defparameter *berries* (mapcar (lambda (berry)
+                                  (concatenate 'string berry "berry"))
+                                *berry-types*))
 
 (defparameter *outdoor-places*
   '("Meadow" "Mountain" "Forest" "Woods" "Patch"
     "Knoll" "Plains"))
 
+(defparameter *outdoor-place-adjectives*
+  '("Grassy" "Sunny" "Peaceful" "Somber" "Quiet"
+    "Cloudy" "Green" "Gray" "Rocky" "Stoney" "Leafy"
+    "Pleasant"))
+
+(defparameter *outdoor-place-prefixes*
+  (concatenate 'list *vegetables* *berries* *trees*
+               *outdoor-place-adjectives*))
+
 (defparameter *basic-street-names*
   (concatenate 'list *trees* *flowers* *rocks* *presidents*
                *vegetables*))
 
-(defparameter *street-types*
-  '("Street" "Avenue" "Parkway" "Circle" "Way" "Loop"
+(defparameter *other-street-types*
+  '("Avenue" "Parkway" "Circle" "Way" "Loop"
     "Highway" "Trail" "Path"))
-
-(defun random-street-type ()
-  (random-value *street-types*))
 
 (defparameter *full-name-suffixes*
   '("Junior" "Senior" "the Second" "the Third"))
 
 (defparameter *nicknames*
   '("Bobby" "Johnny" "Dan" "Danny" "Bob" "Jon"
-    "Bubba" "Jose" "Big" "Mikey" "Slim" "Little" "Hands"
+    "Bubba" "Jose" "Big John" "Mikey" "Slim" "Little" "Hands"
     "Tiny" "Scar" "Biggie" "Jim" "Buck" "99"))
 
-(defparameter *single-letter-street-name-chance* 1/15)
-(defparameter *numerical-street-name-chance* 1/15)
+(defparameter *street-name-other-street-type-chance* 2/3)
+(defparameter *street-name-single-letter-chance* 1/25)
+(defparameter *street-name-numerical-chance* 1/15)
 (defparameter *street-name-full-name-chance* 1/20)
 (defparameter *street-name-highway-chance* 1/20)
+(defparameter *street-name-outdoor-place-chance* 1/15)
+
+(defun random-street-type ()
+  (if (rarely *street-name-other-street-type-chance*)
+      (random-value *other-street-types*)
+      "Street"))
 
 ;; initials for first name like JK or DH
 ;; suffixes for full name like Junior, Senior, The Second
@@ -128,7 +152,7 @@
     (setf (char copy 0) (char-upcase (char string 0)))
     copy))
 
-(defun random-capital-letter ()
+(defun capital-letter ()
   (make-string
    1 :initial-element
    (code-char (+ (char-code #\A)
@@ -147,7 +171,7 @@
 (defparameter *last-name-prefix-chance* 1/15)
 (defparameter *first/last-swap-chance* 1/10)
 (defparameter *name-change-letter-chance* 1/12)
-(defparameter *full-name-suffix-chance* 1/15)
+(defparameter *full-name-suffix-chance* 1/25)
 (defparameter *nickname-chance* 1/28)
 
 (defun random-index (list)
@@ -160,7 +184,7 @@
   "chance should be a fraction like 1/10, or 1/100"
   (assert (>= chance 0/1))
   (assert (<= chance 1/1))
-  (= 1 (random (/ 1 chance))))
+  (= 1 (truncate (random (* 10 (ceiling (/ 1 chance)))) 10)))
 
 (defun random-consonant ()
   (random-value *consonants*))
@@ -222,9 +246,9 @@
 (defun initials ()
   (concatenate
    'string
-   (random-capital-letter)
+   (capital-letter)
    "."
-   (random-capital-letter)
+   (capital-letter)
    "."
    (if (rarely *three-initials-chance*)
        (concatenate 'string (random-capital-letter) ".")
@@ -245,16 +269,54 @@
 
 (defun street ()
   (cond
-    ((rarely *single-letter-street-name-chance*)
+    ((rarely *street-name-single-letter-chance*)
      (format nil "Avenue ~a" (random-capital-letter)))
-    ((rarely *numerical-street-name-chance*)
+    ((rarely *street-name-numerical-chance*)
      (upcase-first-letter
       (format nil "~:R ~a" (random 100) (random-street-type))))
     ((rarely *street-name-full-name-chance*)
      (concatenate 'string (full-name)
-                  " " (random-value *street-suffixes*)))
+                  " " (random-street-type)))
     ((rarely *street-name-highway-chance*)
      (format nil "Highway ~a" (random 10000)))
+    ((rarely *street-name-outdoor-place-chance*)
+     (concatenate 'string (random-value *outdoor-place-prefixes*)
+                  " " (random-value *outdoor-places*)
+                  " " (random-street-type)))
     (t (concatenate 'string (random-value *basic-street-names*)
-                    " " (random-value *street-suffixes*)))))
+                    " " (random-street-type)))))
 
+(defun n-digit-number (n)
+  (if (plusp n)
+      (format nil "~a~a"
+              (random 10)
+              (n-digit-number (1- n)))
+      ""))
+
+(defparameter *months*
+  '((:name "January"   :abbrev "Jan" :days 31)
+    (:name "February"  :abbrev "Feb" :days 28)
+    (:name "March"     :abbrev "Mar" :days 31)
+    (:name "April"     :abbrev "Apr" :days 30)
+    (:name "May"       :abbrev "May" :days 31)
+    (:name "June"      :abbrev "Jun" :days 30)
+    (:name "July"      :abbrev "Jul" :days 31)
+    (:name "August"    :abbrev "Aug" :days 31)
+    (:name "September" :abbrev "Sep" :days 30)
+    (:name "October"   :abbrev "Oct" :days 31)
+    (:name "November"  :abbrev "Nov" :days 30)
+    (:name "December"  :abbrev "Dec" :days 31)))
+
+(defun get-current-year ()
+  (nth-value 5
+             (decode-universal-time
+              (get-universal-time))))
+
+(defun date (&key
+               (min-year (get-current-year))
+               (max-year (1+ (get-current-year))))
+  (let ((month (random-value *months*)))
+    (format nil "~a ~a, ~a"
+            (getf month :name)
+            (1+ (random (getf month :days)))
+            (+ min-year (random (1+ (- max-year min-year)))))))

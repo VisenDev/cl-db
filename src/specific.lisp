@@ -9,7 +9,8 @@
                     (#:tbl #:open-orders.tables)
                     (#:sql #:open-orders.sql-table)
                     (#:class-ui #:open-orders.class-ui)
-                    (#:auth #:open-orders.auth)))
+                    (#:auth #:open-orders.auth)
+                    (#:rand #:open-orders.random)))
 (in-package #:open-orders.specific)
 
 (declaim (optimize (debug 3)))
@@ -32,8 +33,16 @@
 
 (defun generate-random-open-order-table-item ()
   (make-instance 'open-order-table-item
-                 )
-  )
+                 :date (rand:date)
+                 :code (format nil "~a/~a" (rand:capital-letter)
+                               (rand:capital-letter))
+                 :part-number (rand:n-digit-number (+ 4 (random 2)))
+                 :line (random 15)
+                 :status (rand:random-value '("In Stock" "Waiting"
+                                              "Running"))
+                 :po-number (rand:n-digit-number (+ 4 (random 2)))
+                 :file-number ""
+                 :qty (max 100 (* 100 (random 100)))))
 
 (defun on-new-window (body)
   (load-css (html-document body) "/open-orders.css")
