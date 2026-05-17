@@ -59,8 +59,11 @@
                         :collect (generate-random-open-order-table-item))))
     (dolist (h '("Date" "Code" "Part Number" "P.O.#"
                  "Line" "Status" "File#" "QTY"))
-      (create-table-heading header :content h
-                                   :class "table-header-bar-item"))
+      (let ((heading (create-table-heading header :content h
+                                           :class "table-header-bar-item")))
+        (setf (clog:attribute heading "title")
+              (format nil "Sort by ~a" h))))
+    
     (dolist (item content)
       (let ((row (clog:create-table-row tbl :class "table-row"))
             (slots '(date code part-number po-number

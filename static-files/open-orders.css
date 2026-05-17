@@ -58,8 +58,9 @@ body {
 }
 
 .table-header-bar-item:hover {
-    cursor:s-resize;
-    text-decoration:underline;
+    cursor:pointer;
+    font-style:italic;
+    text-shadow: 1px 1px 2px white;
 }
 
 .table-row {
