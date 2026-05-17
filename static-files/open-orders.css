@@ -15,6 +15,11 @@ body {
     font-size: 150%;
 }
 
+.menu-button:hover {
+    background: darkgray;
+    cursor:pointer;
+}
+
 .menu-bar {
     display: flex;
     flex-direction:row;
@@ -35,10 +40,11 @@ body {
 }
 
 .table-header-bar {
-    background-image: linear-gradient(to bottom, royalblue, darkblue);
+    background-image: linear-gradient(to bottom, #6666ff, #3344ee);
     font-size: 150%;
-    display:flex;
-    flex-direction:row;
+    display:grid;
+    gap: 10px;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr; 
     margin-left: 20px;
     margin-right: 0px;
     width: calc(100vw - 50px);
@@ -47,6 +53,30 @@ body {
 }
 
 .table-header-bar-item {
+    margin-left: 0px;
+    margin-right: 0px;
+}
+
+.table-header-bar-item:hover {
+    cursor:s-resize;
+    text-decoration:underline;
+}
+
+.table-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr; 
+
+    align-items: center;
+    text-align: center;
+    border: 1px solid black;
+    /* gap: 10px; */
+
+    padding: 5px;
     margin-left: 20px;
-    margin-right: 20px;
+    width: calc(100vw - 50px);
+}
+
+.table-row:hover {
+    cursor:pointer;
+    background-color:#eeeeee;
 }

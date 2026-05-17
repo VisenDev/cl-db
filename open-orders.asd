@@ -25,11 +25,14 @@
                              (:file "sql-table")
                              (:file "tables")
                              (:file "admin")
-                             (:file "class-ui")
-                             (:file "auth")
-                             (:file "pages")
+                             ;; (:file "class-ui")
+                             ;; (:file "auth")
+                             (:file "random")
+                             (:file "specific")
+                             ;; (:file "pages")
                              ;; (:file "ui")
-                             (:file "main")))))
+                             ;; (:file "main")
+                             ))))
 
 (defsystem "open-orders/executable"
   :build-operation program-op

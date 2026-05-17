@@ -1,4 +1,6 @@
-(load (merge-pathnames "vendored/asdf.lisp" (uiop:getcwd)))
+(let ((asdf-path (merge-pathnames "vendored/asdf.lisp" (uiop:getcwd))))
+  (compile-file asdf-path)
+  (load asdf-path))
 
 (let ((*standard-output* (make-broadcast-stream)))
   #+sbcl (declaim (sb-ext:muffle-conditions sb-ext:compiler-note))

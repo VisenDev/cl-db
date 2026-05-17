@@ -8,8 +8,6 @@
   (:local-nicknames (#:a #:alexandria)
                     (#:tbl #:open-orders.tables)
                     (#:sql #:open-orders.sql-table)
-                    (#:class-ui #:open-orders.class-ui)
-                    (#:auth #:open-orders.auth)
                     (#:rand #:open-orders.random)))
 (in-package #:open-orders.specific)
 
@@ -56,12 +54,19 @@
 
   ;; content
   (let* ((tbl (create-table body))
-         (header (create-table-heading tbl :class "table-header-bar")))
+         (header (create-table-heading tbl :class "table-header-bar"))
+         (content (loop :repeat 20
+                        :collect (generate-random-open-order-table-item))))
     (dolist (h '("Date" "Code" "Part Number" "P.O.#"
                  "Line" "Status" "File#" "QTY"))
       (create-table-heading header :content h
-                                   :class "table-header-bar-item")))
-  )
+                                   :class "table-header-bar-item"))
+    (dolist (item content)
+      (let ((row (clog:create-table-row tbl :class "table-row"))
+            (slots '(date code part-number po-number
+                     line status file-number qty)))
+        (dolist (slot slots)
+          (clog:create-table-column row :content (slot-value item slot)))))))
 
 (defun test ()
   (clog:initialize
