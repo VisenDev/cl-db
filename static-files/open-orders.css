@@ -20,8 +20,9 @@ body {
         text-align: left;
         margin-top: 2px;
         margin-bottom: 2px;
-        border: none;
-        background-color: white;
+        /* margin-right: 200px */;
+        /* border: none; */
+        /* background-color: white; */
     }
 }
 
@@ -41,7 +42,10 @@ body {
     .menu-bar {
         display: flex;
         flex-direction: column;
+        align-items: flex-start;
         width: calc(100vw - 80px);
+        margin-top: 20px;
+        margin-bottom: 20px;
     }
 }
 
