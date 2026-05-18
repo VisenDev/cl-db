@@ -1,6 +1,9 @@
-(let ((asdf-path (merge-pathnames "vendored/asdf.lisp" (uiop:getcwd))))
-  (compile-file asdf-path)
-  (load asdf-path))
+(when (uiop:version< uiop:*uiop-version* "3.3")
+  (let ((asdf-path (merge-pathnames "vendored/asdf.lisp" (uiop:getcwd)))
+        (asdf-fasl-path (merge-pathnames "vendored/asdf.fasl" (uiop:getcwd))))
+    (unless (probe-file asdf-fasl-path)
+      (compile-file asdf-path :output-file asdf-fasl-path))
+    (load asdf-fasl-path)))
 
 (let ((*standard-output* (make-broadcast-stream)))
   #+sbcl (declaim (sb-ext:muffle-conditions sb-ext:compiler-note))
