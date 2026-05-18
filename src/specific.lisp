@@ -8,7 +8,8 @@
   (:local-nicknames (#:a #:alexandria)
                     (#:tbl #:open-orders.tables)
                     (#:sql #:open-orders.sql-table)
-                    (#:rand #:open-orders.random)))
+                    (#:rand #:open-orders.random)
+                    (#:url #:open-orders.url-parser)))
 (in-package #:open-orders.specific)
 
 (declaim (optimize (debug 3)))
@@ -42,6 +43,15 @@
                  :file-number ""
                  :qty (max 100 (* 100 (random 100)))))
 
+(defun on-edit-open-order (body &optional open-order-id)
+  ;; (let* ((tab-bar (create-div ))))
+  (let* ((params (url:parse-parameters (url (location body))))
+         (id (getf params :id)))
+    (unless id
+      (create-p body :content "No id provided"))
+    (create-section body :h1
+                    :content (format nil "Editing Open Order ~a" id))))
+
 (defun on-new-window (body)
   (load-css (html-document body) "/open-orders.css")
 
@@ -70,23 +80,34 @@
                (setf (attribute heading "title")
                      (format nil "Sort by ~a" h))))
     
-    (dolist (item content)
-      (let ((row (clog:create-table-row tbl :class "table-row"))
-            (slots '(date code part-number po-number
-                     line status file-number qty)))
-        (loop :for slot :in slots
-              :for i :from 0
-              :do
-                 (create-table-column
-                  row :content (slot-value item slot)
-                  :class                  
-                  (when (> i 2)
-                    "hidden-on-mobile")))))))
+    (loop
+      :for item :in content
+      :for i :from 0
+      :do
+         (let ((i i)
+               (row (clog:create-table-row tbl :class "table-row"))
+               (slots '(date code part-number po-number
+                        line status file-number qty)))
+           (set-on-click row  (lambda (obj)
+                                (declare (ignore obj))
+                                (clog:url-assign
+                                 (location body)
+                                 (format nil "/edit-open-order?id=~a"
+                                         i))))
+           (dolist (slot slots)
+             (let ((i i))
+               (create-table-column
+                row :content (slot-value item slot)
+                :class                  
+                (when (> i 2)
+                  "hidden-on-mobile"))
+               ))))))
 
 (defun test ()
   (clog:initialize
    #'on-new-window
    :static-root (asdf:system-relative-pathname "open-orders"
                                                "./static-files/"))
+  (clog:set-on-new-window #'on-edit-open-order :path "/edit-open-order")
   (clog:open-browser)
   )

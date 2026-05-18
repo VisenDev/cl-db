@@ -28,6 +28,7 @@
                              ;; (:file "class-ui")
                              ;; (:file "auth")
                              (:file "random")
+                             (:file "url-parser")
                              (:file "specific")
                              ;; (:file "pages")
                              ;; (:file "ui")
