@@ -53,23 +53,35 @@
     (create-p body :content "Exit" :class "exit-button"))
 
   ;; content
-  (let* ((tbl (create-table body))
-         (header (create-table-heading tbl :class "table-header-bar"))
+  (let* ((tbl (create-table body :class "table"))
+         (header (create-table-head tbl :class "table-header-bar"))
          (content (loop :repeat 20
                         :collect (generate-random-open-order-table-item))))
-    (dolist (h '("Date" "Code" "Part Number" "P.O.#"
-                 "Line" "Status" "File#" "QTY"))
-      (let ((heading (create-table-heading header :content h
-                                           :class "table-header-bar-item")))
-        (setf (clog:attribute heading "title")
-              (format nil "Sort by ~a" h))))
+    (loop :for h :in '("Date" "Code" "Part Number" "P.O.#"
+                       "Line" "Status" "File#" "QTY")
+          :for i :from 0
+          :do
+             (let ((heading (create-table-heading
+                             header :content h
+                             :class "table-header-bar-item")))
+               (when (> i 2)
+                 (add-class heading "hidden-on-mobile"))
+               
+               (setf (attribute heading "title")
+                     (format nil "Sort by ~a" h))))
     
     (dolist (item content)
       (let ((row (clog:create-table-row tbl :class "table-row"))
             (slots '(date code part-number po-number
                      line status file-number qty)))
-        (dolist (slot slots)
-          (clog:create-table-column row :content (slot-value item slot)))))))
+        (loop :for slot :in slots
+              :for i :from 0
+              :do
+                 (create-table-column
+                  row :content (slot-value item slot)
+                  :class                  
+                  (when (> i 2)
+                    "hidden-on-mobile")))))))
 
 (defun test ()
   (clog:initialize
