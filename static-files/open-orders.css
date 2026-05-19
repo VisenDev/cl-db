@@ -130,6 +130,7 @@ body {
 .tab-bar {
     display:flex;
     flex-direction:row;
+    align-items: flex-start;
     margin: 5px;
     font-size: 120%;
 }
@@ -152,15 +153,21 @@ body {
 
 .tab-bar-button-selected {
     border: none;
-    background: #eeeeee;
+    background: white;
+}
+
+.tab-bar-content {
+    background: white;
 }
 
 .edit-screen-content {
-    border: 10px solid #333333;
-    background-color: #888888;
+    border: 5px solid #333333;
+    background-color: white;
+    display:inline-flex;
+    flex-direction:column;
+    /* align-items: flex-start; */
     margin-left: 20px;
     margin-right: 20px;
     padding: 10px;
-    min-height: 300px;
-    max-width: 1400px;
+    min-height: 500px;
 }

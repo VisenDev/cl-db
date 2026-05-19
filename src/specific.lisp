@@ -70,34 +70,48 @@
 
   (let* ((div (create-div body :class "edit-screen-content"))
          (params (url:parse-parameters (url (location body))))
-         (id (getf params :id)))
-    (unless id (create-p body :content "No id provided"))
-
-    (let* ((tab-bar (create-div div :class "tab-bar"))
-           (tab-labels '("P.O. Details" "Job Ticket" "Shipping Details"
-                         "Certificate of Conformance" "Part Labels"
-                         "Packing List" "Additional Documents"))
-           (tabs
-             (loop :for label :in tab-labels
-                   :collect (list label
-                                  (create-p tab-bar
-                                            :class "tab-bar-button"
-                                            :content label)))))
+         (id (getf params :id))
+         (tab-bar (create-div div :class "tab-bar"))
+         (tab-labels '("P.O. Details" "Job Ticket" "Shipping Details"
+                       "Certificate of Conformance" "Part Labels"
+                       "Packing List" "Additional Documents"))
+         (tabs
+           (mapcar (lambda (label)
+                     (list label
+                           (create-p tab-bar
+                                     :class "tab-bar-button"
+                                     :content label)
+                           (create-div div :class "tab-bar-content"
+                                           :hidden t)))
+                   tab-labels)))
+    (declare (ignorable id))
+    (assert (not (null id))) ;; ensure id url parameter was passed
+    
+    ;; add content to po details page
+    (dotimes (i 10)
+      (clog:create-p (third (first tabs))
+                     :content "hi" ))
+    
+    
+    (labels ((unselect-all-tabs ()
+               (dolist (tab tabs)
+                 (setf (visiblep (third tab)) nil)
+                 (clog:remove-class (second tab)
+                                    "tab-bar-button-selected")))
+             (select-tab (label-button-div-list)
+               (unselect-all-tabs)
+               (add-class (second label-button-div-list)
+                          "tab-bar-button-selected")
+               (setf (visiblep (third label-button-div-list)) t)))
 
       ;; select first tab by default
-      (add-class (cadar tabs) "tab-bar-button-selected")
-      
-      (flet ((unselect-all-tabs ()
-               (dolist (tab tabs)
-                 (clog:remove-class (cadr tab) "tab-bar-button-selected"))))
+      (select-tab (first tabs))
 
-        ;; add on-click behavior to all tabs
-        (loop :for (label obj) :in tabs
-              :do (set-on-click
-                   obj
-                   (lambda (obj)
-                     (unselect-all-tabs)
-                     (add-class obj "tab-bar-button-selected"))))))))
+      ;; add on-click behavior to all tabs
+      (loop :for tab :in tabs
+            :do (let ((tab tab))
+                  (set-on-click
+                   (second tab) (fn (obj) (select-tab tab))))))))
 
 (defun on-new-window (body)
   (load-css-and-menu-buttons body)
