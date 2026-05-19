@@ -16,7 +16,12 @@
 
 
 (defparameter *menu-buttons*
-  '("Customers" "Open Orders" "Material" "History"))
+    ;; label      url         magnifier-icon-p
+  '(("Customers" "/customers" t)
+    ("Open Orders" "/" t)
+    ("Material" "/material" t)
+    ("History" "/history" t)
+    ("Forms" "/forms" nil)))
 
 (defun create-menu-button (obj content &key magnifier-icon-p)
   (let ((b (create-button obj :class "menu-button"
@@ -25,6 +30,20 @@
                               (concatenate 'string content " 🔍")
                               content))))
     b))
+
+(defun load-css-and-menu-buttons (body)
+  (load-css (html-document body) "/open-orders.css")
+
+  ;; Menu bar
+  (let ((div (create-div body :class "menu-bar")))
+    (loop :for (label url magnifier) :in *menu-buttons* :do
+      (let ((url url))
+        (set-on-click
+         (create-menu-button div label :magnifier-icon-p magnifier)
+         (lambda (obj)
+           (declare (ignore obj))
+           (url-assign (location body) url)))))
+    (create-p body :content "Exit" :class "exit-button")))
 
 (class/std open-order-table-item
   date code part-number po-number line status
@@ -43,24 +62,45 @@
                  :file-number ""
                  :qty (max 100 (* 100 (random 100)))))
 
-(defun on-edit-open-order (body &optional open-order-id)
-  ;; (let* ((tab-bar (create-div ))))
-  (let* ((params (url:parse-parameters (url (location body))))
+
+
+(defun on-edit-open-order (body)
+  ;;menu
+  (load-css-and-menu-buttons body)
+
+  (let* ((div (create-div body :class "edit-screen-content"))
+         (params (url:parse-parameters (url (location body))))
          (id (getf params :id)))
-    (unless id
-      (create-p body :content "No id provided"))
-    (create-section body :h1
-                    :content (format nil "Editing Open Order ~a" id))))
+    (unless id (create-p body :content "No id provided"))
+
+    (let* ((tab-bar (create-div div :class "tab-bar"))
+           (tab-labels '("P.O. Details" "Job Ticket" "Shipping Details"
+                         "Certificate of Conformance" "Part Labels"
+                         "Packing List" "Additional Documents"))
+           (tabs
+             (loop :for label :in tab-labels
+                   :collect (list label
+                                  (create-p tab-bar
+                                            :class "tab-bar-button"
+                                            :content label)))))
+
+      ;; select first tab by default
+      (add-class (cadar tabs) "tab-bar-button-selected")
+      
+      (flet ((unselect-all-tabs ()
+               (dolist (tab tabs)
+                 (clog:remove-class (cadr tab) "tab-bar-button-selected"))))
+
+        ;; add on-click behavior to all tabs
+        (loop :for (label obj) :in tabs
+              :do (set-on-click
+                   obj
+                   (lambda (obj)
+                     (unselect-all-tabs)
+                     (add-class obj "tab-bar-button-selected"))))))))
 
 (defun on-new-window (body)
-  (load-css (html-document body) "/open-orders.css")
-
-  ;; Menu bar
-  (let ((div (create-div body :class "menu-bar")))
-    (dolist (b *menu-buttons*)
-      (create-menu-button div b :magnifier-icon-p t))
-    (create-menu-button div "Forms")
-    (create-p body :content "Exit" :class "exit-button"))
+  (load-css-and-menu-buttons body)
 
   ;; content
   (let* ((tbl (create-table body :class "table"))
@@ -109,5 +149,4 @@
    :static-root (asdf:system-relative-pathname "open-orders"
                                                "./static-files/"))
   (clog:set-on-new-window #'on-edit-open-order :path "/edit-open-order")
-  (clog:open-browser)
-  )
+  (clog:open-browser))

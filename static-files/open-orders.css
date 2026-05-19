@@ -1,5 +1,5 @@
 body {
-    background-color: white;
+    background-color: #eeeeee;
     margin:0;
     font-family: sans-serif;
 }
@@ -124,5 +124,43 @@ body {
 
 .table-row:hover {
     cursor:pointer;
-    background-color:#eeeeee;
+    background-color:#dddddd;
+}
+
+.tab-bar {
+    display:flex;
+    flex-direction:row;
+    margin: 5px;
+    font-size: 120%;
+}
+
+.tab-bar-button {
+    border: 1px solid darkgray;
+    background: lightgray;
+    color: #222222;
+    border-top-left-radius: 5px;
+    border-top-right-radius: 5px;
+    margin: 1px;
+    padding: 5px;
+    padding-left: 15px;
+    padding-right: 15px;
+}
+
+.tab-bar-button:hover {
+    background: gray;
+}
+
+.tab-bar-button-selected {
+    border: none;
+    background: #eeeeee;
+}
+
+.edit-screen-content {
+    border: 10px solid #333333;
+    background-color: #888888;
+    margin-left: 20px;
+    margin-right: 20px;
+    padding: 10px;
+    min-height: 300px;
+    max-width: 1400px;
 }
