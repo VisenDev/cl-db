@@ -62,35 +62,39 @@
                  :file-number ""
                  :qty (max 100 (* 100 (random 100)))))
 
-
-
 (defun on-edit-open-order (body)
   ;;menu
   (load-css-and-menu-buttons body)
 
-  (let* ((div (create-div body :class "edit-screen-content"))
+  (let* ((div (create-div body :class "window-content"))
          (params (url:parse-parameters (url (location body))))
          (id (getf params :id))
+         (header-bar (create-div div :class "header-bar"))
          (tab-bar (create-div div :class "tab-bar"))
          (tab-labels '("P.O. Details" "Job Ticket" "Shipping Details"
                        "Certificate of Conformance" "Part Labels"
                        "Packing List" "Additional Documents"))
+         (tab-content-container (create-div
+                                 div :class "tab-bar-content-container"))
          (tabs
            (mapcar (lambda (label)
                      (list label
                            (create-p tab-bar
                                      :class "tab-bar-button"
                                      :content label)
-                           (create-div div :class "tab-bar-content"
+                           (create-div tab-content-container :class "tab-bar-content"
                                            :hidden t)))
                    tab-labels)))
-    (declare (ignorable id))
+    (declare (ignorable id header-bar))
     (assert (not (null id))) ;; ensure id url parameter was passed
+
+    (dolist (tab tabs)
+      (create-p (third tab) :content (first tab)))
     
     ;; add content to po details page
-    (dotimes (i 10)
-      (clog:create-p (third (first tabs))
-                     :content "hi" ))
+    ;; (dotimes (i 10)
+    ;;   (clog:create-p (third (first tabs))
+    ;;                  :content "hi" ))
     
     
     (labels ((unselect-all-tabs ()
