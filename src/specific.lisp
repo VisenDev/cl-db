@@ -47,6 +47,15 @@
            (url-assign (location body) url)))))
     (create-p body :content "Exit" :class "exit-button")))
 
+(defun create-copyright-bar (body)
+  (let ((div (create-div body :class "copyright-bar")))
+    (dolist (msg '("Created By Wess Burnett" "Record ID #" "Work Order #"))
+      (create-p div :content msg))
+    (create-a div :content "Copyright Wess Burnett, 2026"
+              :link "https://github.com/VisenDev/open-orders"
+              :target "_blank" )))
+
+
 (class/std open-order-table-item
   date code part-number po-number line status
   file-number qty)
@@ -101,6 +110,8 @@
       (dolist (tab tabs)
         (create-p (third tab) :content (first tab)))
 
+      (create-copyright-bar div)
+
       ;; local functions
       (labels ((find-tab (label)
                  (an:aprog1
@@ -108,18 +119,19 @@
                    (assert (not (null an:it))
                            (label) "tab '~a' not found" label)))
 
-               (unselect-all-tabs ()
+               (unselect-all-tabs (&optional skip-tab)
                  (dolist (tab tabs)
-                   (setf (visiblep (third tab)) nil)
-                   (clog:remove-class (second tab)
-                                      "tab-bar-button-selected")))
+                   (unless (equalp tab skip-tab)
+                     (setf (visiblep (third tab)) nil)
+                     (clog:remove-class (second tab)
+                                        "tab-bar-button-selected"))))
                
                (select-tab (label-button-div-list)
                  (assert (not (null label-button-div-list)))
-                 (unselect-all-tabs)
                  (add-class (second label-button-div-list)
                             "tab-bar-button-selected")
-                 (setf (visiblep (third label-button-div-list)) t)))
+                 (setf (visiblep (third label-button-div-list)) t)
+                 (unselect-all-tabs label-button-div-list)))
 
         ;; select first tab by default
         (select-tab (find-tab "P.O. Details"))
