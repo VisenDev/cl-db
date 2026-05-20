@@ -1,11 +1,13 @@
 (uiop:define-package #:open-orders.specific
-  (:use #:cl #:clog)
+  (:use #:cl #:clog) ;; I know use is bad style but in the interest
+                     ;; of brevity I am allowing it here
   (:import-from #:open-orders.utils
                 #:fn)
   (:import-from #:defclass-std
                 #:defclass/std
                 #:class/std)
   (:local-nicknames (#:a #:alexandria)
+                    (#:an #:anaphora)
                     (#:tbl #:open-orders.tables)
                     (#:sql #:open-orders.sql-table)
                     (#:rand #:open-orders.random)
@@ -66,56 +68,67 @@
   ;;menu
   (load-css-and-menu-buttons body)
 
-  (let* ((div (create-div body :class "window-content"))
-         (params (url:parse-parameters (url (location body))))
-         (id (getf params :id))
-         (header-bar (create-div div :class "header-bar"))
-         (tab-bar (create-div div :class "tab-bar"))
-         (tab-labels '("P.O. Details" "Job Ticket" "Shipping Details"
-                       "Certificate of Conformance" "Part Labels"
-                       "Packing List" "Additional Documents"))
-         (tab-content-container (create-div
-                                 div :class "tab-bar-content-container"))
-         (tabs
-           (mapcar (lambda (label)
-                     (list label
-                           (create-p tab-bar
-                                     :class "tab-bar-button"
-                                     :content label)
-                           (create-div tab-content-container :class "tab-bar-content"
-                                           :hidden t)))
-                   tab-labels)))
-    (declare (ignorable id header-bar))
-    (assert (not (null id))) ;; ensure id url parameter was passed
+  (flet ((create-tab (tab-button-parent tab-content-parent label)
+           "returns (label button div)"
+           (list label
+                 (create-p tab-button-parent
+                           :class "tab-bar-button"
+                           :content label)
+                 (an:aprog1
+                     (create-div
+                      tab-content-parent
+                      :class "tab-bar-content")
+                   (setf (visiblep an:it) nil)))))
 
-    (dolist (tab tabs)
-      (create-p (third tab) :content (first tab)))
-    
-    ;; add content to po details page
-    ;; (dotimes (i 10)
-    ;;   (clog:create-p (third (first tabs))
-    ;;                  :content "hi" ))
-    
-    
-    (labels ((unselect-all-tabs ()
-               (dolist (tab tabs)
-                 (setf (visiblep (third tab)) nil)
-                 (clog:remove-class (second tab)
-                                    "tab-bar-button-selected")))
-             (select-tab (label-button-div-list)
-               (unselect-all-tabs)
-               (add-class (second label-button-div-list)
-                          "tab-bar-button-selected")
-               (setf (visiblep (third label-button-div-list)) t)))
+    (let* ((div (create-div body :class "window-content"))
+           (params (url:parse-parameters (url (location body))))
+           (id (getf params :id))
+           (header-bar (create-div div :class "header-bar"))
+           (tab-bar (create-div div :class "tab-bar"))
+           (tab-labels '("P.O. Details" "Job Ticket" "Shipping Details"
+                         "Certificate of Conformance" "Part Labels"
+                         "Packing List" "Additional Documents"))
+           (tab-content-container (create-div
+                                   div :class "tab-bar-content-container"))
+           (tabs
+             (mapcar
+              (a:curry #'create-tab tab-bar tab-content-container)
+              tab-labels)))
+      (declare (ignorable id header-bar))
+      (assert (not (null id))) ;; ensure id url parameter was passed
 
-      ;; select first tab by default
-      (select-tab (first tabs))
+      ;; temporary page content for demo
+      (dolist (tab tabs)
+        (create-p (third tab) :content (first tab)))
 
-      ;; add on-click behavior to all tabs
-      (loop :for tab :in tabs
-            :do (let ((tab tab))
-                  (set-on-click
-                   (second tab) (fn (obj) (select-tab tab))))))))
+      ;; local functions
+      (labels ((find-tab (label)
+                 (an:aprog1
+                     (assoc label tabs :test #'string-equal)
+                   (assert (not (null an:it))
+                           (label) "tab '~a' not found" label)))
+
+               (unselect-all-tabs ()
+                 (dolist (tab tabs)
+                   (setf (visiblep (third tab)) nil)
+                   (clog:remove-class (second tab)
+                                      "tab-bar-button-selected")))
+               
+               (select-tab (label-button-div-list)
+                 (assert (not (null label-button-div-list)))
+                 (unselect-all-tabs)
+                 (add-class (second label-button-div-list)
+                            "tab-bar-button-selected")
+                 (setf (visiblep (third label-button-div-list)) t)))
+
+        ;; select first tab by default
+        (select-tab (find-tab "P.O. Details"))
+
+        ;; add on-click behavior to all tabs
+        (loop :for tab :in tabs
+              :do (let ((tab tab))
+                    (set-on-click
+                     (second tab) (fn (obj) (select-tab tab)))))))))
 
 (defun on-new-window (body)
   (load-css-and-menu-buttons body)
@@ -158,8 +171,7 @@
                 row :content (slot-value item slot)
                 :class                  
                 (when (> i 2)
-                  "hidden-on-mobile"))
-               ))))))
+                  "hidden-on-mobile"))))))))
 
 (defun test ()
   (clog:initialize
