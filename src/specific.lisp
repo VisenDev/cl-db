@@ -107,9 +107,8 @@
       (assert (not (null id))) ;; ensure id url parameter was passed
 
       ;; temporary page content for demo
-      (dolist (tab tabs)
-        (create-p (third tab) :content (first tab)))
-
+      ;; (dolist (tab tabs)
+      ;;   (create-p (third tab) :content (first tab)))
       (create-copyright-bar div)
 
       ;; local functions
@@ -132,6 +131,20 @@
                             "tab-bar-button-selected")
                  (setf (visiblep (third label-button-div-list)) t)
                  (unselect-all-tabs label-button-div-list)))
+
+        
+        (let* ((tab (find-tab "P.O. Details"))
+               (div (third tab))
+               (form (create-form div :style "display:flex;")))
+
+          (let ((sub-div (create-div form :style "display:flex;")))
+            (create-label form :label-for sub-div :content "Customer Code" :style "float:left;")
+            (create-form-element sub-div :text :style "width:50%;")
+            (create-button sub-div :content "E-mail Customer" :style "width:50%;"))
+
+          (let ((label (create-label form :content "Customer Name")))
+            (label-for label (create-button form :content "View Customer Information"))))
+        
 
         ;; select first tab by default
         (select-tab (find-tab "P.O. Details"))
