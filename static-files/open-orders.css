@@ -17,27 +17,31 @@
     border: none;
 }
 
+table {
+    border-collapse: collapse;
+    border-spacing: 0;
+    width: 100%;
+}
+
 .header {
     background-image: var(--header-background-image);
-    border-top-left-radius: 5px;
-    border-top-right-radius: 5px;
     font-size: 120%;
+    border-collapse: collapse;
+    border-spacing: 0;
+}
+
+.header * {
+    border: 0px;
+    background-image: var(--header-background-image);
     padding: 5px;
-    /* display:flex; */
-    /* flex-direction:row; */
-    /* justify-content: space-evenly; */
-    gap: 10px;
+    border-spacing: 0;
 }
 
-.header th {
-    margin-left: 10px;
-}
-
-.header:first-child {
+.header td:first-child {
     border-top-left-radius: 5px;
 }
 
-.header:last-child {
+.header td:last-child {
     border-top-right-radius: 5px;
 }
 
