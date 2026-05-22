@@ -16,17 +16,22 @@
 
 (declaim (optimize (debug 3)))
 
+(defstruct (menu-button-config (:conc-name mbc-)
+                               (:constructor make-menu-button-config
+                                   (label url magnifier-icon-p)))
+   label url magnifier-icon-p)
 
 (defparameter *menu-buttons*
-    ;; label      url         magnifier-icon-p
-  '(("Customers" "/customers" t)
-    ("Open Orders" "/" t)
-    ("Material" "/material" t)
-    ("History" "/history" t)
-    ("Forms" "/forms" nil)))
+  (mapcar (a:curry #'apply #'make-menu-button-config)
+          '(("Customers"   "/customers"  t)
+            ("Open Orders" "/"           t)
+            ("Material"    "/material"   t)
+            ("History"     "/history"    t)
+            ("Forms"       "/forms"    nil))))
 
 (defun create-menu-button (obj content &key magnifier-icon-p)
-  (let ((b (create-button obj :class "menu-button"
+  (let ((b (create-button obj :class "clickable secondary rounded hoverable
+                                      important"
                               :content
                           (if magnifier-icon-p
                               (concatenate 'string content " 🔍")
@@ -35,16 +40,27 @@
 
 (defun load-css-and-menu-buttons (body)
   (load-css (html-document body) "/open-orders.css")
-
+ 
   ;; Menu bar
-  (let ((div (create-div body :class "menu-bar")))
-    (loop :for (label url magnifier) :in *menu-buttons* :do
-      (let ((url url))
+  (let* ((parent-div (create-div body :class "row spaced margin"))
+         (primary-div (create-div parent-div :class "row"))
+         (secondary-div (create-div parent-div :style "margin-right:50px;")))
+
+    ;; create menu-buttons
+    (dolist (btn *menu-buttons*)
+      (let ((url (mbc-url btn)))
         (set-on-click
-         (create-menu-button div label :magnifier-icon-p magnifier)
+         (create-menu-button primary-div (mbc-label btn)
+                             :magnifier-icon-p (mbc-magnifier-icon-p btn))
          (lambda (obj)
            (declare (ignore obj))
            (url-assign (location body) url)))))
+
+    ;; New Button
+    (set-on-click (create-menu-button secondary-div "New")
+                  (fn (obj) (url-assign (location body) "/new")))
+
+    ;; Exit Button
     (create-p body :content "Exit" :class "exit-button")))
 
 (defun create-copyright-bar (body)
@@ -73,115 +89,108 @@
                  :file-number ""
                  :qty (max 100 (* 100 (random 100)))))
 
-(defun on-edit-open-order (body)
-  ;;menu
-  (load-css-and-menu-buttons body)
+;; (defun on-edit-open-order (body)
+;;   ;;menu
+;;   (load-css-and-menu-buttons body)
 
-  (flet ((create-tab (tab-button-parent tab-content-parent label)
-           "returns (label button div)"
-           (list label
-                 (create-p tab-button-parent
-                           :class "tab-bar-button"
-                           :content label)
-                 (an:aprog1
-                     (create-div
-                      tab-content-parent
-                      :class "tab-bar-content")
-                   (setf (visiblep an:it) nil)))))
+;;   (flet ((create-tab (tab-button-parent tab-content-parent label)
+;;            "returns (label button div)"
+;;            (list label
+;;                  (create-p tab-button-parent
+;;                            :class "tab-bar-button"
+;;                            :content label)
+;;                  (an:aprog1
+;;                      (create-div
+;;                       tab-content-parent
+;;                       :class "tab-bar-content")
+;;                    (setf (visiblep an:it) nil)))))
 
-    (let* ((div (create-div body :class "window-content"))
-           (params (url:parse-parameters (url (location body))))
-           (id (getf params :id))
-           (header-bar (create-div div :class "header-bar"))
-           (tab-bar (create-div div :class "tab-bar"))
-           (tab-labels '("P.O. Details" "Job Ticket" "Shipping Details"
-                         "Certificate of Conformance" "Part Labels"
-                         "Packing List" "Additional Documents"))
-           (tab-content-container (create-div
-                                   div :class "tab-bar-content-container"))
-           (tabs
-             (mapcar
-              (a:curry #'create-tab tab-bar tab-content-container)
-              tab-labels)))
-      (declare (ignorable id header-bar))
-      (assert (not (null id))) ;; ensure id url parameter was passed
+;;     (let* ((div (create-div body :class "window-content"))
+;;            (params (url:parse-parameters (url (location body))))
+;;            (id (getf params :id))
+;;            (header-bar (create-div div :class "header-bar"))
+;;            (tab-bar (create-div div :class "tab-bar"))
+;;            (tab-labels '("P.O. Details" "Job Ticket" "Shipping Details"
+;;                          "Certificate of Conformance" "Part Labels"
+;;                          "Packing List" "Additional Documents"))
+;;            (tab-content-container (create-div
+;;                                    div :class "tab-bar-content-container"))
+;;            (tabs
+;;              (mapcar
+;;               (a:curry #'create-tab tab-bar tab-content-container)
+;;               tab-labels)))
+;;       (declare (ignorable id header-bar))
+;;       (assert (not (null id))) ;; ensure id url parameter was passed
 
-      ;; temporary page content for demo
-      ;; (dolist (tab tabs)
-      ;;   (create-p (third tab) :content (first tab)))
-      (create-copyright-bar div)
+;;       ;; temporary page content for demo
+;;       ;; (dolist (tab tabs)
+;;       ;;   (create-p (third tab) :content (first tab)))
+;;       (create-copyright-bar div)
 
-      ;; local functions
-      (labels ((find-tab (label)
-                 (an:aprog1
-                     (assoc label tabs :test #'string-equal)
-                   (assert (not (null an:it))
-                           (label) "tab '~a' not found" label)))
+;;       ;; local functions
+;;       (labels ((find-tab (label)
+;;                  (an:aprog1
+;;                      (assoc label tabs :test #'string-equal)
+;;                    (assert (not (null an:it))
+;;                            (label) "tab '~a' not found" label)))
 
-               (unselect-all-tabs (&optional skip-tab)
-                 (dolist (tab tabs)
-                   (unless (equalp tab skip-tab)
-                     (setf (visiblep (third tab)) nil)
-                     (clog:remove-class (second tab)
-                                        "tab-bar-button-selected"))))
+;;                (unselect-all-tabs (&optional skip-tab)
+;;                  (dolist (tab tabs)
+;;                    (unless (equalp tab skip-tab)
+;;                      (setf (visiblep (third tab)) nil)
+;;                      (clog:remove-class (second tab)
+;;                                         "tab-bar-button-selected"))))
                
-               (select-tab (label-button-div-list)
-                 (assert (not (null label-button-div-list)))
-                 (add-class (second label-button-div-list)
-                            "tab-bar-button-selected")
-                 (setf (visiblep (third label-button-div-list)) t)
-                 (unselect-all-tabs label-button-div-list)))
+;;                (select-tab (label-button-div-list)
+;;                  (assert (not (null label-button-div-list)))
+;;                  (add-class (second label-button-div-list)
+;;                             "tab-bar-button-selected")
+;;                  (setf (visiblep (third label-button-div-list)) t)
+;;                  (unselect-all-tabs label-button-div-list)))
 
         
-        (let* ((tab (find-tab "P.O. Details"))
-               (div (third tab))
-               (form (create-form div :style "display:flex;")))
+;;         (let* ((tab (find-tab "P.O. Details"))
+;;                (div (third tab))
+;;                (form (create-form div :class "input-area-columns"))
+;;                (left-div (create-div form :style "flex:1;"))
+;;                (right-div (create-div form :style "flex:1;")))
 
-          (let ((sub-div (create-div form :style "display:flex;")))
-            (create-label form :label-for sub-div :content "Customer Code" :style "float:left;")
-            (create-form-element sub-div :text :style "width:50%;")
-            (create-button sub-div :content "E-mail Customer" :style "width:50%;"))
+;;           (let ((row (create-div left-div :class "row")))
+;;             (create-label row :content "Customer Code")
+;;             (create-form-element row :text :style "width:50%;")
+;;             (create-button row :content "E-mail Customer" :style "width:50%;"))
 
-          (let ((label (create-label form :content "Customer Name")))
-            (label-for label (create-button form :content "View Customer Information"))))
+;;           (let ((label (create-label form :content "Customer Name")))
+;;             (label-for label (create-button form :content "View Customer Information"))))
         
 
-        ;; select first tab by default
-        (select-tab (find-tab "P.O. Details"))
+;;         ;; select first tab by default
+;;         (select-tab (find-tab "P.O. Details"))
 
-        ;; add on-click behavior to all tabs
-        (loop :for tab :in tabs
-              :do (let ((tab tab))
-                    (set-on-click
-                     (second tab) (fn (obj) (select-tab tab)))))))))
+;;         ;; add on-click behavior to all tabs
+;;         (loop :for tab :in tabs
+;;               :do (let ((tab tab))
+;;                     (set-on-click
+;;                      (second tab) (fn (obj) (select-tab tab)))))))))
 
 (defun on-new-window (body)
   (load-css-and-menu-buttons body)
 
   ;; content
   (let* ((tbl (create-table body :class "table"))
-         (header (create-table-head tbl :class "table-header-bar"))
+         (header (create-table-row tbl :class "header"))
          (content (loop :repeat 20
                         :collect (generate-random-open-order-table-item))))
     (loop :for h :in '("Date" "Code" "Part Number" "P.O.#"
                        "Line" "Status" "File#" "QTY")
-          :for i :from 0
-          :do
-             (let ((heading (create-table-heading
-                             header :content h
-                             :class "table-header-bar-item")))
-               (when (> i 2)
-                 (add-class heading "hidden-on-mobile"))
-               
-               (setf (attribute heading "title")
-                     (format nil "Sort by ~a" h))))
+          :do (create-table-column header :content h))
     
     (loop
       :for item :in content
       :for i :from 0
       :do
          (let ((i i)
-               (row (clog:create-table-row tbl :class "table-row"))
+               (row (clog:create-table-row tbl :class "hoverable clickable"))
                (slots '(date code part-number po-number
                         line status file-number qty)))
            (set-on-click row  (lambda (obj)
@@ -191,17 +200,13 @@
                                  (format nil "/edit-open-order?id=~a"
                                          i))))
            (dolist (slot slots)
-             (let ((i i))
-               (create-table-column
-                row :content (slot-value item slot)
-                :class                  
-                (when (> i 2)
-                  "hidden-on-mobile"))))))))
+             (create-table-column
+              row :content (slot-value item slot)))))))
 
 (defun test ()
   (clog:initialize
    #'on-new-window
    :static-root (asdf:system-relative-pathname "open-orders"
                                                "./static-files/"))
-  (clog:set-on-new-window #'on-edit-open-order :path "/edit-open-order")
+  ;; (clog:set-on-new-window #'on-edit-open-order :path "/edit-open-order")
   (clog:open-browser))
