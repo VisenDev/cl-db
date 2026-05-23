@@ -27,6 +27,8 @@
                              (:file "admin")
                              (:file "random")
                              (:file "url-parser")
+                             (:file "class-ui")
+                             (:file "auth")
                              (:file "specific")))))
 #+nil
 (defsystem "open-orders/executable"

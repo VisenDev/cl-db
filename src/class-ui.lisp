@@ -239,17 +239,17 @@
     (setf (input result)
           (clog:create-element container "blockquote"
                                :class (input-class config)))
-    (labels ((push-ui (ui-config i value)
+    (labels ((push-ui (ui-config value)
                (unless (value ui-config)
                  (setf (value ui-config) value))
-               (push (slot-ui ui-config (input result)
-                              (lambda (new-value)
-                                (setf (nth i values) new-value)))
+               (push (slot-ui ui-config (input result))
                      uis)
                (push value values))
              (pop-ui ()
                (when uis
-                 (clog:destroy (div (pop uis)))
+                 (let ((popped (pop uis)))
+                   (clog:destroy (label popped))
+                   (clog:destroy (input popped)))
                  (pop values))))
 
       (setf (extract-value-function result)
@@ -269,8 +269,7 @@
                                             :class "outline")
                              (fn (obj)
                                (push-ui
-                                (duplicate-instance (item-config config))
-                                (length uis) nil)))
+                                (duplicate-instance (item-config config)) nil)))
           (clog:set-on-click
            (clog:create-button controls-div :content "Remove"
                                             :class "outline")
@@ -293,7 +292,7 @@
       (dotimes (i (max (length (value config))
                        (item-count config)))
         (push-ui (duplicate-instance (item-config config))
-                 i (nth i (value config))))
+                 (nth i (value config))))
       )
     )
   )
@@ -444,7 +443,7 @@
 (defmethod finalize-values ((class-ui class-ui))
   "Loop through all the slot-ui elements and save their values to the instance,
    this ensures the instance has the most up to date values entered into the slot-uis.
-   This function should be called before things like serializing/saving the values of 
+n   This function should be called before things like serializing/saving the values of 
    the instance"
   (loop :for slot :in (slot-ui-list class-ui)
         :for name :in (slot-name-list class-ui)
@@ -452,9 +451,21 @@
                   (funcall (extract-value-function slot))))
   (instance class-ui))
 
+
 (defmethod class-ui (slot-config-plist
-                     (instance standard-object) (container clog:clog-obj))
-  (let ((form (clog:create-form container))
+                     (instance standard-object) (container clog:clog-obj)
+                     &key (form-class ""))
+
+  (let ((expanded-slots-list
+          (loop :for slot :in (mop:class-slots (class-of instance))
+                :for sym = (mop:slot-definition-name slot)
+                :for kw = (a:make-keyword sym)
+                :append (list sym kw))))
+    (a:doplist (key value slot-config-plist)
+        (assert (member key expanded-slots-list) (key)
+                "Invalid slot designator '~a'" key)))
+  
+  (let ((form (clog:create-form container :class form-class))
         (result (make-instance 'class-ui))
         (slots (reverse (mop:class-slots (class-of instance)))))
 

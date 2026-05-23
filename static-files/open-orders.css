@@ -21,20 +21,34 @@ table {
     border-collapse: collapse;
     border-spacing: 0;
     width: 100%;
+    border-top-left-radius: 5px;
+    border-top-right-radius: 5px;
+}
+
+tr {
+    border-bottom: 1px solid black;
+}
+
+input {
+    border: 1px solid black;
+    max-width: 200px;
+    margin: 5px;
+}
+
+label {
+    padding: 5px;
 }
 
 .header {
     background-image: var(--header-background-image);
     font-size: 120%;
-    border-collapse: collapse;
-    border-spacing: 0;
+    border: none;
 }
 
 .header * {
     border: 0px;
     background-image: var(--header-background-image);
     padding: 5px;
-    border-spacing: 0;
 }
 
 .header td:first-child {
@@ -70,6 +84,11 @@ table {
     display: flex;
     flex-direction: row;
     gap: 20px;
+}
+
+.column {
+    display: flex;
+    flex-direction: column;
 }
 
 .spaced {

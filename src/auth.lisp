@@ -27,12 +27,15 @@
 
 (class/std login-form username password stay-logged-in)
 
-(defun test-credentials (body conn login-form)
+(declaim (ftype
+          (function (clog:clog-body dbi:dbi-connection login-form) t)
+          test-credentials))
+(defun test-credentials (body database-conn login-form)
   (let ((user-record
           (handler-case
               (sql:exec-select 'tbl:user 'tbl:name
                                (username login-form)
-                               (tbl:db conn))
+                               database-conn)
             (error (e) (clog:alert (clog:window body) e)))))
     (let ((valid
             (and user-record
@@ -41,13 +44,12 @@
                   (password login-form)
                   (tbl:hash user-record)))))
       (when valid
-        (setf (tbl:user conn) user-record)
         (if (stay-logged-in login-form)
             
             ;; then
             (let ((tok (authentication-token-create)))
               (setf (tbl:authentication-token user-record) tok)
-              (sql:exec-update user-record (tbl:db conn))
+              (sql:exec-update user-record database-conn)
               (clog-auth:store-authentication-token
                body tok))
 

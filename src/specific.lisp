@@ -11,15 +11,44 @@
                     (#:tbl #:open-orders.tables)
                     (#:sql #:open-orders.sql-table)
                     (#:rand #:open-orders.random)
-                    (#:url #:open-orders.url-parser)))
+                    (#:url #:open-orders.url-parser)
+                    (#:auth #:open-orders.auth)
+                    (#:class-ui #:open-orders.class-ui)
+                    (#:paths #:open-orders.paths)))
 (in-package #:open-orders.specific)
-
 (declaim (optimize (debug 3)))
+
+(defun assign-url-function (body url)
+  (lambda (&rest args)
+    (declare (ignore args))
+    (url-assign (location body) url)))
+
+(defun on-login-page (body)
+  (load-css (html-document body) "/open-orders.css")
+  (let* ((instance (make-instance 'auth:login-form))
+         (ui (class-ui:class-ui
+              (list
+               :username (make-instance 'class-ui:config/text)
+               :password (make-instance 'class-ui:config/password)
+               :stay-logged-in
+                    (make-instance 'class-ui:config/toggle
+                                   :label "Stay Logged In?"))
+              instance body
+                                :form-class "column")))
+
+    ;; TODO fix this, 
+    (dbi:with-connection (conn :sqlite3 :database-name paths:*db-path*)
+      (set-on-click (create-button body :content "Submit")
+                    (fn (obj)
+                      (class-ui:finalize-values ui)
+                      (auth:test-credentials
+                       body conn instance))))))
+
 
 (defstruct (menu-button-config (:conc-name mbc-)
                                (:constructor make-menu-button-config
                                    (label url magnifier-icon-p)))
-   label url magnifier-icon-p)
+  label url magnifier-icon-p)
 
 (defparameter *menu-buttons*
   (mapcar (a:curry #'apply #'make-menu-button-config)
@@ -48,17 +77,14 @@
 
     ;; create menu-buttons
     (dolist (btn *menu-buttons*)
-      (let ((url (mbc-url btn)))
-        (set-on-click
-         (create-menu-button primary-div (mbc-label btn)
-                             :magnifier-icon-p (mbc-magnifier-icon-p btn))
-         (lambda (obj)
-           (declare (ignore obj))
-           (url-assign (location body) url)))))
+      (set-on-click
+       (create-menu-button primary-div (mbc-label btn)
+                           :magnifier-icon-p (mbc-magnifier-icon-p btn))
+       (assign-url-function body (mbc-url btn))))
 
     ;; New Button
     (set-on-click (create-menu-button secondary-div "New")
-                  (fn (obj) (url-assign (location body) "/new")))
+                  (assign-url-function body "/new"))
 
     ;; Exit Button
     (create-p body :content "Exit" :class "exit-button")))
@@ -173,11 +199,13 @@
 ;;                     (set-on-click
 ;;                      (second tab) (fn (obj) (select-tab tab)))))))))
 
+
+
 (defun on-new-window (body)
   (load-css-and-menu-buttons body)
 
   ;; content
-  (let* ((tbl (create-table body :class "table"))
+  (let* ((tbl (create-table body :class "table margin"))
          (header (create-table-row tbl :class "header"))
          (content (loop :repeat 20
                         :collect (generate-random-open-order-table-item))))
@@ -193,12 +221,9 @@
                (row (clog:create-table-row tbl :class "hoverable clickable"))
                (slots '(date code part-number po-number
                         line status file-number qty)))
-           (set-on-click row  (lambda (obj)
-                                (declare (ignore obj))
-                                (clog:url-assign
-                                 (location body)
-                                 (format nil "/edit-open-order?id=~a"
-                                         i))))
+           (set-on-click row (assign-url-function
+                              body (format nil "/edit-open-order?id=~a"
+                                           i)))
            (dolist (slot slots)
              (create-table-column
               row :content (slot-value item slot)))))))
@@ -209,4 +234,5 @@
    :static-root (asdf:system-relative-pathname "open-orders"
                                                "./static-files/"))
   ;; (clog:set-on-new-window #'on-edit-open-order :path "/edit-open-order")
+  (clog:set-on-new-window #'on-login-page :path "/login")
   (clog:open-browser))
