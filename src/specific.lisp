@@ -90,7 +90,7 @@
     (create-p body :content "Exit" :class "exit-button")))
 
 (defun create-copyright-bar (body)
-  (let ((div (create-div body :class "copyright-bar")))
+  (let ((div (create-div body :class "footer row")))
     (dolist (msg '("Created By Wess Burnett" "Record ID #" "Work Order #"))
       (create-p div :content msg))
     (create-a div :content "Copyright Wess Burnett, 2026"
@@ -199,19 +199,30 @@
 ;;                     (set-on-click
 ;;                      (second tab) (fn (obj) (select-tab tab)))))))))
 
-
+(defun on-edit-open-order (body)
+  (load-css-and-menu-buttons body)
+  (let* ((div (create-div body))
+         (header (create-div div :class "header"))
+         (content (create-div div))
+         (footer (create-copyright-bar div)))
+    (dotimes (i 10)
+      (create-p content :content "test-content"))))
 
 (defun on-new-window (body)
   (load-css-and-menu-buttons body)
 
   ;; content
-  (let* ((tbl (create-table body :class "table margin"))
+  (let* ((tbl (create-table body :class "table"))
          (header (create-table-row tbl :class "header"))
          (content (loop :repeat 20
-                        :collect (generate-random-open-order-table-item))))
+                        :collect (generate-random-open-order-table-item)))
+         (hide-on-mobile-i '(3 4 5 6)))
     (loop :for h :in '("Date" "Code" "Part Number" "P.O.#"
                        "Line" "Status" "File#" "QTY")
-          :do (create-table-column header :content h))
+          :for i :from 0
+          :for col = (create-table-column header :content h :class "hoverable")
+          :when (member i hide-on-mobile-i)
+            :do (add-class col "hide-on-mobile"))
     
     (loop
       :for item :in content
@@ -221,18 +232,22 @@
                (row (clog:create-table-row tbl :class "hoverable clickable"))
                (slots '(date code part-number po-number
                         line status file-number qty)))
+
            (set-on-click row (assign-url-function
                               body (format nil "/edit-open-order?id=~a"
                                            i)))
-           (dolist (slot slots)
-             (create-table-column
-              row :content (slot-value item slot)))))))
+           (loop :for slot :in slots
+                 :for j :from 0
+                 :for col = (create-table-column
+                             row :content (slot-value item slot))
+                 :when (member j hide-on-mobile-i)
+                   :do (add-class col "hide-on-mobile"))))))
 
 (defun test ()
   (clog:initialize
    #'on-new-window
    :static-root (asdf:system-relative-pathname "open-orders"
                                                "./static-files/"))
-  ;; (clog:set-on-new-window #'on-edit-open-order :path "/edit-open-order")
+  (clog:set-on-new-window #'on-edit-open-order :path "/edit-open-order")
   (clog:set-on-new-window #'on-login-page :path "/login")
   (clog:open-browser))
