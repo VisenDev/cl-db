@@ -15,68 +15,82 @@
    #:login-form
    #:username
    #:password
-   #:stay-logged-in))
+   #:stay-logged-in
+   #:auth-token-get
+   #:get-logged-in-user))
 (in-package #:open-orders.auth)
-
 (declaim (optimize (debug 3)))
 
-(defun authentication-token-create ()
+(declaim (ftype (function () string) auth-token-create))
+(defun auth-token-create ()
   "Create a unique token used to associate a browser with a user"
   (crypto:byte-array-to-hex-string
    (crypto:random-data 16)))
 
-(class/std login-form username password stay-logged-in)
+(declaim (ftype (function (clog:clog-body) (or null string)) auth-token-get))
+(defun auth-token-get (body)
+  "Returns any stored auth tokens from a page, or redirects to 
+  login url and return nil"
+  (clog-auth:get-authentication-token body))
 
-(declaim (ftype
-          (function (clog:clog-body dbi:dbi-connection login-form) t)
-          test-credentials))
+(defun get-logged-in-user (body db login-url)
+  "Get logged in tbl:user or return nil and redirect to login-url"
+  (let ((user
+          (sql:exec-select 'tbl:user 'tbl:authentication-token
+                           (auth-token-get body)
+                           db)))
+
+    
+    (unless user
+      (format t "Failed login... redirecting~%")
+      (clog:url-assign (clog:location body) login-url))
+    
+    user))
+
+(class/std login-form
+  username password)
+
+(declaim
+ (ftype (function (clog:clog-body dbi:dbi-connection login-form) t)
+  test-credentials))
 (defun test-credentials (body database-conn login-form)
+  "Attempt to perform login using form, storing auth token on success"
+
+  (format t "Testing creds: ~a ~a~%"
+          (username login-form) (password login-form))
+  
+  ;; Attempt to retreive user record using login-form
   (let ((user-record
           (handler-case
               (sql:exec-select 'tbl:user 'tbl:name
                                (username login-form)
                                database-conn)
             (error (e) (clog:alert (clog:window body) e)))))
+
+    (format t "Found user record: ~a~%" user-record)
+
+    ;; Check if user record is not null and matches the password
     (let ((valid
             (and user-record
                  (tbl:hash user-record)
                  (cl-pass:check-password
                   (password login-form)
                   (tbl:hash user-record)))))
+
+      ;; Store auth token if valid
       (when valid
-        (if (stay-logged-in login-form)
-            
-            ;; then
-            (let ((tok (authentication-token-create)))
-              (setf (tbl:authentication-token user-record) tok)
-              (sql:exec-update user-record database-conn)
-              (clog-auth:store-authentication-token
-               body tok))
+        (format t "Valid password...~%~%")
+        (let ((tok (authentication-token-create)))
+          (setf (tbl:authentication-token user-record) tok)
+          (sql:exec-update user-record database-conn)
+          (clog-auth:store-authentication-token
+           body tok)))
 
-            ;;else 
-            (clog-auth:remove-authentication-token body))
-        valid))))
+      ;; Finally return result
+      valid)))
 
 
-(defun logout (body conn)
+(declaim (ftype (function (clog:clog-body) t) logout))
+(defun logout (body)
   (clog-auth:remove-authentication-token body)
-  (setf (tbl:user conn) nil)
-  (clog:url-replace (clog:location body) "/"))
-
-;; (declaim (ftype (function (clog:clog-body) (or null tbl:connection))
-;;                 get-connection))
-;; (defun get-connection (body)
-;;   (let ((conn (clog:connection-data-item body "conn")))
-;;     (unless conn
-;;       (clog:url-replace (clog:location body) "/"))
-;;     conn))
-
-;; (declaim (ftype (function (clog:clog-body) (or null tbl:connection))
-;;                 get-logged-in-connection))
-;; (defun get-logged-in-connection (body)
-;;   "Like get-connection but it ensures the user is logged in"
-;;   (let ((conn (get-connection body)))
-;;     (when conn
-;;       (unless (tbl:user conn)
-;;         (clog:url-replace (clog:location body) "/")))
-;;     conn))
+  (clog:url-replace (clog:location body) "/login"))

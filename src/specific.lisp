@@ -2,7 +2,8 @@
   (:use #:cl #:clog) ;; I know use is bad style but in the interest
                      ;; of brevity I am allowing it here
   (:import-from #:open-orders.utils
-                #:fn)
+                #:fn
+                #:*let)
   (:import-from #:defclass-std
                 #:defclass/std
                 #:class/std)
@@ -18,7 +19,20 @@
 (in-package #:open-orders.specific)
 (declaim (optimize (debug 3)))
 
+(defvar *db* nil
+  "Primary database handle shared by threads.")
+
+(declaim (ftype (function () dbi:dbi-connection) db-get))
+(defun db-get ()
+  "Returns a handle to the primary database, initializes"
+  (unless *db*
+    (setf *db* (tbl:database-connect)))
+  *db*)
+
+(declaim (ftype (function (clog-body string) (function (&rest t) t))
+                assign-url-function))
 (defun assign-url-function (body url)
+  "Returns a lambda that performs a url assign to the document when called."
   (lambda (&rest args)
     (declare (ignore args))
     (url-assign (location body) url)))
@@ -29,20 +43,19 @@
          (ui (class-ui:class-ui
               (list
                :username (make-instance 'class-ui:config/text)
-               :password (make-instance 'class-ui:config/password)
-               :stay-logged-in
-                    (make-instance 'class-ui:config/toggle
-                                   :label "Stay Logged In?"))
+               :password (make-instance 'class-ui:config/password))
               instance body
-                                :form-class "column")))
+              :form-class "column")))
 
     ;; TODO fix this, 
     (dbi:with-connection (conn :sqlite3 :database-name paths:*db-path*)
-      (set-on-click (create-button body :content "Submit")
+      (set-on-click (create-button body :content "Submit" :class "clickable")
                     (fn (obj)
-                      (class-ui:finalize-values ui)
-                      (auth:test-credentials
-                       body conn instance))))))
+                      (when (auth:test-credentials
+                             body
+                             (db-get)
+                             (class-ui:finalize-values ui))
+                        (url-assign (location body) "/")))))))
 
 
 (defstruct (menu-button-config (:conc-name mbc-)
@@ -87,7 +100,10 @@
                   (assign-url-function body "/new"))
 
     ;; Exit Button
-    (create-p body :content "Exit" :class "exit-button")))
+    (set-on-click (create-p body :content "Exit" :class "exit-button")
+                  (fn (obj)
+                    (auth:logout body)
+                    (url-assign (location body) "/login")))))
 
 (defun create-copyright-bar (body)
   (let ((div (create-div body :class "footer row")))
@@ -200,30 +216,49 @@
 ;;                      (second tab) (fn (obj) (select-tab tab)))))))))
 
 (defun on-edit-open-order (body)
+
+  ;; Auth Check
+  (unless (auth:get-logged-in-user body (db-get) "/login")
+    (create-p body :content "Forbidden")
+    (return-from on-edit-open-order))
+
+  ;; Load styling
   (load-css-and-menu-buttons body)
-  (let* ((div (create-div body))
-         (header (create-div div :class "header"))
+
+  ;; Content
+  (*let ((div (create-div body))
+         (_header (create-div div :class "header"))
          (content (create-div div))
-         (footer (create-copyright-bar div)))
+         (_footer (create-copyright-bar div)))
     (dotimes (i 10)
       (create-p content :content "test-content"))))
 
 (defun on-new-window (body)
+  
+  ;; Auth check
+  (unless (auth:get-logged-in-user body (db-get) "/login")
+    (create-p body :content "Forbidden")
+    (return-from on-new-window))
+ 
+    ;; Load css and menu
   (load-css-and-menu-buttons body)
 
-  ;; content
+    ;; Page Content
   (let* ((tbl (create-table body :class "table"))
          (header (create-table-row tbl :class "header"))
          (content (loop :repeat 20
                         :collect (generate-random-open-order-table-item)))
          (hide-on-mobile-i '(3 4 5 6)))
+
+    ;; Table Header Bar
     (loop :for h :in '("Date" "Code" "Part Number" "P.O.#"
                        "Line" "Status" "File#" "QTY")
           :for i :from 0
           :for col = (create-table-column header :content h :class "hoverable")
           :when (member i hide-on-mobile-i)
             :do (add-class col "hide-on-mobile"))
-    
+
+    ;; Table Rows
     (loop
       :for item :in content
       :for i :from 0
@@ -236,6 +271,8 @@
            (set-on-click row (assign-url-function
                               body (format nil "/edit-open-order?id=~a"
                                            i)))
+           
+           ;; Table Row Content
            (loop :for slot :in slots
                  :for j :from 0
                  :for col = (create-table-column
