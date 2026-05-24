@@ -80,7 +80,7 @@
       ;; Store auth token if valid
       (when valid
         (format t "Valid password...~%~%")
-        (let ((tok (authentication-token-create)))
+        (let ((tok (auth-token-create)))
           (setf (tbl:authentication-token user-record) tok)
           (sql:exec-update user-record database-conn)
           (clog-auth:store-authentication-token
