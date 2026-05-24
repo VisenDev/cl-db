@@ -1,6 +1,7 @@
 (uiop:define-package #:open-orders.utils
   (:use #:cl)
-  (:local-nicknames (#:a #:alexandria))
+  (:local-nicknames (#:a #:alexandria)
+                    (#:mop #:closer-mop))
   (:export #:*let
            #:fn
            #:diff))
@@ -33,3 +34,61 @@
 (defun diff (a b)
   "returns the difference between two numbers"
   (abs (- a b)))
+
+
+(defmacro defstruct* (name-and-options &body slots)
+  "Like defstruct except it also defines short generic accessor functions
+   for every slot using the slot name."
+  
+  (let* ((name (if (listp name-and-options)
+                   (car name-and-options)
+                   name-and-options))
+         (options (if (listp name-and-options)
+                      (cdr name-and-options)
+                      nil))
+         (conc-name (or (cadr (find :conc-name options :key #'car))
+                        (a:symbolicate name '-)))
+         (slot-names (mapcar (lambda (slot)
+                               (if (listp slot)
+                                   (car slot)
+                                   slot))
+                             slots))
+         (include (cadr (find :include options :key #'car))))
+
+    ;; Handle include option
+    (when include
+      (mop:ensure-finalized (find-class include))
+      (a:appendf slot-names (mapcar #'mop:slot-definition-name
+                                    (mop:class-slots (find-class include)))))
+
+    ;; Define expansion
+    `(progn
+
+       ;; Struct Definition
+       (defstruct ,name-and-options ,@slots)
+
+       ;; Generic Accessors for Slots
+       ,@(mapcar (lambda (slot-name)
+                   `(progn
+
+                      ;; Getter
+                      (defmethod ,slot-name ((,name ,name))
+                        (,(a:symbolicate conc-name slot-name) ,name))
+
+                      ;; Setter
+                      (defmethod (setf,slot-name) (new-value (,name ,name))
+                        (setf (,(a:symbolicate conc-name slot-name) ,name)
+                              new-value))))
+                 slot-names))))
+
+(defstruct* (foo (:conc-name "F-")) bar bap)
+(defparameter *foo* (make-foo :bar 1 :bap 2))
+(setf (bar *foo*) 1000)
+
+
+(defstruct* (rectangle (:include foo))
+  (x 0.0f0 :type single-float)
+  (y 0.0f0 :type single-float)
+  (w 0.0f0 :type single-float)
+  (h 0.0f0 :type single-float))
+
