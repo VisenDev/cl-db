@@ -3,7 +3,9 @@
                      ;; of brevity I am allowing it here
   (:import-from #:open-orders.utils
                 #:fn
-                #:*let)
+                #:*let
+                #:defstruct*
+                #:strcat)
   (:import-from #:defclass-std
                 #:defclass/std
                 #:class/std)
@@ -58,9 +60,8 @@
                         (url-assign (location body) "/")))))))
 
 
-(defstruct (menu-button-config (:conc-name mbc-)
-                               (:constructor make-menu-button-config
-                                   (label url magnifier-icon-p)))
+(defstruct* (menu-button-config (:constructor make-menu-button-config
+                                    (label url magnifier-icon-p)))
   label url magnifier-icon-p)
 
 (defparameter *menu-buttons*
@@ -91,9 +92,9 @@
     ;; create menu-buttons
     (dolist (btn *menu-buttons*)
       (set-on-click
-       (create-menu-button primary-div (mbc-label btn)
-                           :magnifier-icon-p (mbc-magnifier-icon-p btn))
-       (assign-url-function body (mbc-url btn))))
+       (create-menu-button primary-div (label btn)
+                           :magnifier-icon-p (magnifier-icon-p btn))
+       (assign-url-function body (url btn))))
 
     ;; New Button
     (set-on-click (create-menu-button secondary-div "New")
@@ -114,22 +115,22 @@
               :target "_blank" )))
 
 
-(class/std open-order-table-item
+(defstruct* open-order-table-item
   date code part-number po-number line status
   file-number qty)
 
 (defun generate-random-open-order-table-item ()
-  (make-instance 'open-order-table-item
-                 :date (rand:date)
-                 :code (format nil "~a/~a" (rand:capital-letter)
-                               (rand:capital-letter))
-                 :part-number (rand:n-digit-number (+ 4 (random 2)))
-                 :line (random 15)
-                 :status (rand:random-value '("In Stock" "Waiting"
-                                              "Running"))
-                 :po-number (rand:n-digit-number (+ 4 (random 2)))
-                 :file-number ""
-                 :qty (max 100 (* 100 (random 100)))))
+  (make-open-order-table-item
+   :date (rand:date)
+   :code (format nil "~a/~a" (rand:capital-letter)
+                 (rand:capital-letter))
+   :part-number (rand:n-digit-number (+ 4 (random 2)))
+   :line (random 15)
+   :status (rand:random-value '("In Stock" "Waiting"
+                                "Running"))
+   :po-number (rand:n-digit-number (+ 4 (random 2)))
+   :file-number ""
+   :qty (max 100 (* 100 (random 100)))))
 
 ;; (defun on-edit-open-order (body)
 ;;   ;;menu
@@ -254,7 +255,8 @@
     (loop :for h :in '("Date" "Code" "Part Number" "P.O.#"
                        "Line" "Status" "File#" "QTY")
           :for i :from 0
-          :for col = (create-table-column header :content h :class "hoverable")
+          :for col = (create-table-column
+                      header :content h :class "hoverable")
           :when (member i hide-on-mobile-i)
             :do (add-class col "hide-on-mobile"))
 

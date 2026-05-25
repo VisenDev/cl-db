@@ -4,7 +4,9 @@
                     (#:mop #:closer-mop))
   (:export #:*let
            #:fn
-           #:diff))
+           #:diff
+           #:defstruct*
+           #:strcat))
 (in-package #:open-orders.utils)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -81,14 +83,7 @@
                               new-value))))
                  slot-names))))
 
-(defstruct* (foo (:conc-name "F-")) bar bap)
-(defparameter *foo* (make-foo :bar 1 :bap 2))
-(setf (bar *foo*) 1000)
 
-
-(defstruct* (rectangle (:include foo))
-  (x 0.0f0 :type single-float)
-  (y 0.0f0 :type single-float)
-  (w 0.0f0 :type single-float)
-  (h 0.0f0 :type single-float))
-
+(declaim (ftype (function (&rest (or null string)) string) strcat))
+(defun strcat (&rest strings)
+  (apply #'concatenate 'string strings))
