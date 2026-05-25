@@ -266,6 +266,11 @@
     result))
 
 
+(defparameter *on-edit-open-order-tabs*
+  '("P.O. Details" "Job Ticket" "Shipping Details"
+    "Certificate of Conformance" "Part Labels"
+    "Packing List" "Additional Documents"))
+
 (defun on-edit-open-order (body)
 
   ;; Auth Check
@@ -282,9 +287,7 @@
          (_header (create-div div :class "header"))
          (content (create-div div))
          (_footer (create-copyright-bar div))
-         (tabs (create-tab-bar content '("Packing List"
-                                         "Primary "
-                                         "Additional"))))
+         (tabs (create-tab-bar content *on-edit-open-order-tabs*)))
     (dotimes (i 10)
       (create-p (div (first (items tabs)))
                 :content "test-content"))))
