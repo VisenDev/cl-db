@@ -1,10 +1,12 @@
 :root {
     --background-color: #eeeeee;
-    --border-color: #222222;
-    --hover-color: #bbbbbb;
-    --secondary-color: #cccccc;
+    --secondary-color:  #cccccc;
+    --hover-color:      #aaaaaa;
+    --clicked-color:    #888888;
+    --border-color:     #222222;
     --max-width: 1200px;
-    --header-background-image: linear-gradient(to bottom, #1a69a8, #14528b);
+    --header-background-image:
+        linear-gradient(to bottom, #1a69a8, #14528b);
 }
 
 * {
@@ -25,11 +27,11 @@ table {
 }
 
 tr {
-    border-bottom: 1px solid black;
+    border-bottom: 1px solid var(--border-color);
 }
 
 input {
-    border: 1px solid black;
+    border: 1px solid var(--border-color);
     max-width: 200px;
     margin: 5px;
 }
@@ -46,6 +48,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 20px;
+    background-color: var(--background-color);
 }
 
 .header {
@@ -61,6 +64,10 @@ body {
 .footer {
     background-color: var(--secondary-color);
     padding: 5px;
+}
+
+.footer * {
+    background-color: var(--secondary-color);
 }
 
 .header * {
@@ -88,6 +95,17 @@ body {
 
 .clickable {
     cursor: pointer;
+}
+
+.clickable:hover {
+    background-color: var(--hover-color);
+    background-image: linear-gradient(to bottom, var(--hover-color),
+                                      var(--hover-color) );
+}
+
+.clickable:active {
+    background-color: var(--clicked-color);
+    background-image: none;
 }
 
 .row {
@@ -123,9 +141,21 @@ body {
     cursor: pointer;
 }
 
-.hoverable:hover {
-    background-color: var(--hover-color);
-    background-image: linear-gradient(to bottom, var(--hover-color), var(--hover-color) );
+.tab-button {
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+    padding: 3px;
+    margin: 3px;
+    background-color: var(--secondary-color);
+}
+
+.selected {
+    background-color: var(--background-color);
+    border-color: var(--background-color);
+}
+
+.hidden {
+    display: none;
 }
 
 @media (max-width: 900px) {
@@ -192,7 +222,7 @@ body {
 
 /* .header-bar { */
 /*     background-image: linear-gradient(to bottom, #1a69a8, #14528b); */
-/*     border: 1px solid black; */
+/*     border: 1px solid var(--border-color); */
 /*     border-radius: 5px; */
 /*     font-size: 150%; */
 /*     width: calc(100vw - 50px); */
@@ -240,7 +270,7 @@ body {
 /* .table-row { */
 /*     align-items: center; */
 /*     text-align: center; */
-/*     border: 1px solid black; */
+/*     border: 1px solid var(--border-color); */
 /*     border-right: 0px; */
 
 /*     padding: 5px; */
@@ -342,7 +372,7 @@ body {
 /*     text-align: center; /\* optional *\/ */
 /*     margin: 0px; */
 /*     padding: 2px; */
-/*     color: black; */
+/*     color: var(--border-color); */
 /*     text-decoration: none; */
 /* } */
 

@@ -216,6 +216,56 @@
 ;;                     (set-on-click
 ;;                      (second tab) (fn (obj) (select-tab tab)))))))))
 
+(defstruct* tab-bar-item
+  button
+  div)
+
+(defstruct* tab-bar
+  (buttons-div nil :type (or null clog-div))
+  (items nil :type list))
+
+(declaim (ftype (function (clog-obj list) tab-bar) create-tab-bar))
+(defun create-tab-bar (obj tab-names)
+  (let ((result (make-tab-bar)))
+    (setf (buttons-div result) (create-div obj :class "row margin"))
+
+    ;; Create individual tab div-button pairs
+    (loop :for i :from 0
+          :for name :in tab-names
+          :for button = (create-button (buttons-div result)
+                                       :content name
+                                       :class "clickable tab-button")
+          :for div = (create-div obj)
+          :for tab-bar-item = (make-tab-bar-item :button button
+                                                 :div div)
+          :if (= i 0)
+            :do (add-class button "selected")
+          :else
+            :do (add-class div "hidden")
+          :end
+          :collect tab-bar-item :into items
+          :finally (setf (items result) items))
+
+    ;; Add click functionality to those pairs
+    (labels ((select-button (obj)
+               (loop :for item :in (items result)
+                     :for button = (button item)
+                     :for div = (div item)
+                     :if (eq button obj)
+                       :do (remove-class div "hidden")
+                           (add-class obj "selected")
+                     :else
+                       :do (remove-class button "selected")
+                           (add-class div "hidden")
+                     :end)))
+      (dolist (item (items result))
+        (set-on-click (button item)
+                      #'select-button)))
+
+    ;; Return result
+    result))
+
+
 (defun on-edit-open-order (body)
 
   ;; Auth Check
@@ -228,11 +278,16 @@
 
   ;; Content
   (*let ((div (create-div body))
+
          (_header (create-div div :class "header"))
          (content (create-div div))
-         (_footer (create-copyright-bar div)))
+         (_footer (create-copyright-bar div))
+         (tabs (create-tab-bar content '("Packing List"
+                                         "Primary "
+                                         "Additional"))))
     (dotimes (i 10)
-      (create-p content :content "test-content"))))
+      (create-p (div (first (items tabs)))
+                :content "test-content"))))
 
 (defun on-new-window (body)
   
