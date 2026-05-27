@@ -1,7 +1,5 @@
 (uiop:define-package #:open-orders.utils
   (:use #:cl)
-  (:local-nicknames (#:a #:alexandria)
-                    (#:mop #:closer-mop))
   (:export #:*let
            #:fn
            #:diff
@@ -49,7 +47,7 @@
                       (cdr name-and-options)
                       nil))
          (conc-name (or (cadr (find :conc-name options :key #'car))
-                        (a:symbolicate name '-)))
+                        (alexandria:symbolicate name '-)))
          (slot-names (mapcar (lambda (slot)
                                (if (listp slot)
                                    (car slot)
@@ -58,10 +56,16 @@
          (include (cadr (find :include options :key #'car))))
 
     ;; Handle include option
+    #+closer-mop
     (when include
-      (mop:ensure-finalized (find-class include))
-      (a:appendf slot-names (mapcar #'mop:slot-definition-name
-                                    (mop:class-slots (find-class include)))))
+      (closer-mop:ensure-finalized (find-class include))
+      (alexandria:appendf
+       slot-names
+       (mapcar #'closer-mop:slot-definition-name
+               (closer-mop:class-slots (find-class include)))))
+    #-closer-mop
+    (when include
+      (error "Cannot handle '(:include ~a)' without closer-mop" include))
 
     ;; Define expansion
     `(progn
@@ -75,11 +79,11 @@
 
                       ;; Getter
                       (defmethod ,slot-name ((,name ,name))
-                        (,(a:symbolicate conc-name slot-name) ,name))
+                        (,(alexandria:symbolicate conc-name slot-name) ,name))
 
                       ;; Setter
                       (defmethod (setf,slot-name) (new-value (,name ,name))
-                        (setf (,(a:symbolicate conc-name slot-name) ,name)
+                        (setf (,(alexandria:symbolicate conc-name slot-name) ,name)
                               new-value))))
                  slot-names))))
 
