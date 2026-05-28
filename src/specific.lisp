@@ -298,7 +298,9 @@
     ;; PO-Details Content
     (*let ((po-details-div (div (first (items tabs))))
            (_horizontal-break (create-hr po-details-div))
-           (pod-div (create-form po-details-div :class "row"))
+           (pod-div (create-form po-details-div
+                                 :class "row"
+                                 :method :get))
            (_1 (add-class pod-div "row"))
            (col-left (create-div pod-div :class "column"))
            (_line (create-div pod-div
@@ -307,13 +309,20 @@
 
       ;; Customer Code/Name
       (create-form-element
-       (create-labelled-row col-left "Customer Code") :text)
+       (create-labelled-row col-left "Customer Code") :text :name "cc")
       (create-form-element
-       (create-labelled-row col-left "Customer Name") :text)
+       (create-labelled-row col-left "Customer Name") :text :name "cn")
+
+      (create-form-element col-left :submit)
 
       ;; File/Material/JobStatus
       (dolist (label '("File #" "Material Type" "Job Status" "Notes"))
-        (create-form-element (create-labelled-row col-right label) :text)))))
+        (create-form-element (create-labelled-row col-right label) :text))
+
+      ;; (set-on-click (create-button col-left :content "get values")
+      ;;               (fn (obj)
+      ;;                 (alert (window body) (form-get-data pod-div))))
+      )))
 
 (defun on-new-window (body)
   
