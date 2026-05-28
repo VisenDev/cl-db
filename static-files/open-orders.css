@@ -111,13 +111,14 @@ body {
 .row {
     display: flex;
     flex-direction: row;
-    flex-wrap: wrap;
     gap: 20px;
+    width: 100%;
 }
 
 .column {
     display: flex;
     flex-direction: column;
+    flex: 1; /*expand*/
 }
 
 .spaced {
@@ -156,6 +157,13 @@ body {
 
 .hidden {
     display: none;
+}
+
+.vertical-line {
+    width: 1px;
+    background-color: var(--border-color);
+    float: left;
+    margin: 5px;
 }
 
 @media (max-width: 900px) {

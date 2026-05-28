@@ -271,6 +271,12 @@
     "Certificate of Conformance" "Part Labels"
     "Packing List" "Additional Documents"))
 
+
+(defun create-labelled-row (obj label)
+  "Creates a row div and applies a label to it"
+  (an:aprog1 (create-div obj :class "row")
+    (create-p an:it :content label :style "flex:1;text-alignment:right;")))
+
 (defun on-edit-open-order (body)
 
   ;; Auth Check
@@ -288,9 +294,33 @@
          (content (create-div div))
          (_footer (create-copyright-bar div))
          (tabs (create-tab-bar content *on-edit-open-order-tabs*)))
-    (dotimes (i 10)
-      (create-p (div (first (items tabs)))
-                :content "test-content"))))
+
+    ;; PO-Details Content
+    (*let ((pod-div (div (first (items tabs))))
+           (_1 (add-class pod-div "row"))
+           (toplevel-column-left (create-div pod-div :class "row"))
+           (_line (create-div pod-div :class "vertical-line"))
+           (toplevel-column-right (create-div pod-div :class "row"))
+           (left-labels (create-div toplevel-column-left :class "column"))
+           (left-inputs (create-div toplevel-column-left :class "column"))
+           (right-labels (create-div toplevel-column-right :class "column"))
+           (right-inputs (create-div toplevel-column-right :class "column")))
+
+      ;; Customer Code/Name
+      (create-p left-labels :content "Customer Code")
+      (create-p left-labels :content "Customer Name")
+      (create-form-element left-inputs :text)
+      (create-form-element left-inputs :text)
+
+      ;; File/Material/JobStatus
+      (create-p right-labels :content "File #")
+      (create-p right-labels :content "Material Type")
+      (create-p right-labels :content "Job Status")
+      (create-p right-labels :content "notes")
+
+      (dotimes (i 4)
+        (create-form-element right-inputs :text)))
+    ))
 
 (defun on-new-window (body)
   
