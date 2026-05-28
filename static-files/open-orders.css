@@ -51,6 +51,23 @@ body {
     background-color: var(--background-color);
 }
 
+hr {
+    margin-top: 5px;
+    margin-bottom: 5px;
+}
+
+input {
+    flex: 1;
+    margin: 0px;
+    padding: 0px;
+    margin-bottom: 5px;
+    min-width: 250px;
+}
+
+button {
+    background-color: var(--secondary-color);
+}
+
 .header {
     background-image: var(--header-background-image);
     font-size: 120%;
@@ -112,7 +129,8 @@ body {
     display: flex;
     flex-direction: row;
     gap: 20px;
-    width: 100%;
+    /* width: 100%; */
+    flex-wrap: wrap;
 }
 
 .column {

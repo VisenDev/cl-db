@@ -109,7 +109,7 @@
 (defun create-copyright-bar (body)
   (let ((div (create-div body :class "footer row")))
     (dolist (msg '("Created By Wess Burnett" "Record ID #" "Work Order #"))
-      (create-p div :content msg))
+      (create-p div :content msg :class "column"))
     (create-a div :content "Copyright Wess Burnett, 2026"
               :link "https://github.com/VisenDev/open-orders"
               :target "_blank" )))
@@ -275,7 +275,7 @@
 (defun create-labelled-row (obj label)
   "Creates a row div and applies a label to it"
   (an:aprog1 (create-div obj :class "row")
-    (create-p an:it :content label :style "flex:1;text-alignment:right;")))
+    (create-p an:it :content label :style "flex:1;text-align:right;")))
 
 (defun on-edit-open-order (body)
 
@@ -296,31 +296,24 @@
          (tabs (create-tab-bar content *on-edit-open-order-tabs*)))
 
     ;; PO-Details Content
-    (*let ((pod-div (div (first (items tabs))))
+    (*let ((po-details-div (div (first (items tabs))))
+           (_horizontal-break (create-hr po-details-div))
+           (pod-div (create-form po-details-div :class "row"))
            (_1 (add-class pod-div "row"))
-           (toplevel-column-left (create-div pod-div :class "row"))
-           (_line (create-div pod-div :class "vertical-line"))
-           (toplevel-column-right (create-div pod-div :class "row"))
-           (left-labels (create-div toplevel-column-left :class "column"))
-           (left-inputs (create-div toplevel-column-left :class "column"))
-           (right-labels (create-div toplevel-column-right :class "column"))
-           (right-inputs (create-div toplevel-column-right :class "column")))
+           (col-left (create-div pod-div :class "column"))
+           (_line (create-div pod-div
+                              :class "vertical-line hide-on-mobile"))
+           (col-right (create-div pod-div :class "column")))
 
       ;; Customer Code/Name
-      (create-p left-labels :content "Customer Code")
-      (create-p left-labels :content "Customer Name")
-      (create-form-element left-inputs :text)
-      (create-form-element left-inputs :text)
+      (create-form-element
+       (create-labelled-row col-left "Customer Code") :text)
+      (create-form-element
+       (create-labelled-row col-left "Customer Name") :text)
 
       ;; File/Material/JobStatus
-      (create-p right-labels :content "File #")
-      (create-p right-labels :content "Material Type")
-      (create-p right-labels :content "Job Status")
-      (create-p right-labels :content "notes")
-
-      (dotimes (i 4)
-        (create-form-element right-inputs :text)))
-    ))
+      (dolist (label '("File #" "Material Type" "Job Status" "Notes"))
+        (create-form-element (create-labelled-row col-right label) :text)))))
 
 (defun on-new-window (body)
   
