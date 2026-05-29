@@ -86,7 +86,7 @@
  
   ;; Menu bar
   (let* ((parent-div (create-div body :class "row spaced margin"))
-         (primary-div (create-div parent-div :class "row"))
+         (primary-div (create-div parent-div :class "row column-on-mobile"))
          (secondary-div (create-div parent-div :style "margin-right:50px;")))
 
     ;; create menu-buttons
@@ -132,90 +132,6 @@
    :file-number ""
    :qty (max 100 (* 100 (random 100)))))
 
-;; (defun on-edit-open-order (body)
-;;   ;;menu
-;;   (load-css-and-menu-buttons body)
-
-;;   (flet ((create-tab (tab-button-parent tab-content-parent label)
-;;            "returns (label button div)"
-;;            (list label
-;;                  (create-p tab-button-parent
-;;                            :class "tab-bar-button"
-;;                            :content label)
-;;                  (an:aprog1
-;;                      (create-div
-;;                       tab-content-parent
-;;                       :class "tab-bar-content")
-;;                    (setf (visiblep an:it) nil)))))
-
-;;     (let* ((div (create-div body :class "window-content"))
-;;            (params (url:parse-parameters (url (location body))))
-;;            (id (getf params :id))
-;;            (header-bar (create-div div :class "header-bar"))
-;;            (tab-bar (create-div div :class "tab-bar"))
-;;            (tab-labels '("P.O. Details" "Job Ticket" "Shipping Details"
-;;                          "Certificate of Conformance" "Part Labels"
-;;                          "Packing List" "Additional Documents"))
-;;            (tab-content-container (create-div
-;;                                    div :class "tab-bar-content-container"))
-;;            (tabs
-;;              (mapcar
-;;               (a:curry #'create-tab tab-bar tab-content-container)
-;;               tab-labels)))
-;;       (declare (ignorable id header-bar))
-;;       (assert (not (null id))) ;; ensure id url parameter was passed
-
-;;       ;; temporary page content for demo
-;;       ;; (dolist (tab tabs)
-;;       ;;   (create-p (third tab) :content (first tab)))
-;;       (create-copyright-bar div)
-
-;;       ;; local functions
-;;       (labels ((find-tab (label)
-;;                  (an:aprog1
-;;                      (assoc label tabs :test #'string-equal)
-;;                    (assert (not (null an:it))
-;;                            (label) "tab '~a' not found" label)))
-
-;;                (unselect-all-tabs (&optional skip-tab)
-;;                  (dolist (tab tabs)
-;;                    (unless (equalp tab skip-tab)
-;;                      (setf (visiblep (third tab)) nil)
-;;                      (clog:remove-class (second tab)
-;;                                         "tab-bar-button-selected"))))
-               
-;;                (select-tab (label-button-div-list)
-;;                  (assert (not (null label-button-div-list)))
-;;                  (add-class (second label-button-div-list)
-;;                             "tab-bar-button-selected")
-;;                  (setf (visiblep (third label-button-div-list)) t)
-;;                  (unselect-all-tabs label-button-div-list)))
-
-        
-;;         (let* ((tab (find-tab "P.O. Details"))
-;;                (div (third tab))
-;;                (form (create-form div :class "input-area-columns"))
-;;                (left-div (create-div form :style "flex:1;"))
-;;                (right-div (create-div form :style "flex:1;")))
-
-;;           (let ((row (create-div left-div :class "row")))
-;;             (create-label row :content "Customer Code")
-;;             (create-form-element row :text :style "width:50%;")
-;;             (create-button row :content "E-mail Customer" :style "width:50%;"))
-
-;;           (let ((label (create-label form :content "Customer Name")))
-;;             (label-for label (create-button form :content "View Customer Information"))))
-        
-
-;;         ;; select first tab by default
-;;         (select-tab (find-tab "P.O. Details"))
-
-;;         ;; add on-click behavior to all tabs
-;;         (loop :for tab :in tabs
-;;               :do (let ((tab tab))
-;;                     (set-on-click
-;;                      (second tab) (fn (obj) (select-tab tab)))))))))
-
 (defstruct* tab-bar-item
   button
   div)
@@ -227,7 +143,7 @@
 (declaim (ftype (function (clog-obj list) tab-bar) create-tab-bar))
 (defun create-tab-bar (obj tab-names)
   (let ((result (make-tab-bar)))
-    (setf (buttons-div result) (create-div obj :class "row margin"))
+    (setf (buttons-div result) (create-div obj :class "row margin column-on-mobile"))
 
     ;; Create individual tab div-button pairs
     (loop :for i :from 0
@@ -275,7 +191,7 @@
 (defun create-labelled-row (obj label)
   "Creates a row div and applies a label to it"
   (an:aprog1 (create-div obj :class "row")
-    (create-p an:it :content label :style "flex:1;text-align:right;")))
+    (create-p an:it :content label :class "label grow")))
 
 (defun on-edit-open-order (body)
 
@@ -297,31 +213,35 @@
 
     ;; PO-Details Content
     (*let ((po-details-div (div (first (items tabs))))
-           (_horizontal-break (create-hr po-details-div))
-           (pod-div (create-form po-details-div
-                                 :class "row"
+           (_top-gap (create-hr po-details-div))
+           (form (create-form po-details-div
+                                 :class "row wrap"
                                  :method :get))
-           (_1 (add-class pod-div "row"))
-           (col-left (create-div pod-div :class "column"))
-           (_line (create-div pod-div
+           (_bottom-gap (create-hr po-details-div))
+           (_1 (add-class form "row"))
+           (col-left (create-div form :class "column grow"))
+           (_line (create-div form
                               :class "vertical-line hide-on-mobile"))
-           (col-right (create-div pod-div :class "column")))
+           (col-right (create-div form :class "column grow")))
 
       ;; Customer Code/Name
       (create-form-element
-       (create-labelled-row col-left "Customer Code") :text :name "cc")
+       (create-labelled-row col-left "Customer Code") :text :name "cc"
+       :class "grow")
       (create-form-element
-       (create-labelled-row col-left "Customer Name") :text :name "cn")
+       (create-labelled-row col-left "Customer Name") :text :name "cn"
+       :class "grow")
 
       (create-form-element col-left :submit)
 
       ;; File/Material/JobStatus
       (dolist (label '("File #" "Material Type" "Job Status" "Notes"))
-        (create-form-element (create-labelled-row col-right label) :text))
+        (create-form-element (create-labelled-row col-right label) :text
+                             :class "grow"))
 
       ;; (set-on-click (create-button col-left :content "get values")
       ;;               (fn (obj)
-      ;;                 (alert (window body) (form-get-data pod-div))))
+      ;;                 (alert (window body) (form-get-data form))))
       )))
 
 (defun on-new-window (body)
