@@ -32,6 +32,7 @@ tr {
 
 input {
     border: 1px solid var(--border-color);
+    min-width: 0px;
 }
 
 label {
@@ -56,6 +57,16 @@ hr {
 
 button {
     background-color: var(--secondary-color);
+    border: 1px solid var(--border-color);
+}
+
+button:hover {
+    background-color: var(--hover-color);
+    cursor: pointer;
+}
+
+button:active {
+    background-color: var(--clicked-color);
 }
 
 .header {
@@ -121,6 +132,10 @@ button {
     gap: 20px;
 }
 
+.small-gap {
+    gap: 5px;
+}
+
 .column {
     display: flex;
     flex-direction: column;
@@ -183,6 +198,7 @@ button {
 .wrap {
     flex-wrap: wrap;
 }
+
 
 @media (max-width: 900px) {
     .hide-on-mobile {

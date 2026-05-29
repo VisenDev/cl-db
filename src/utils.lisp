@@ -4,7 +4,8 @@
            #:fn
            #:diff
            #:defstruct*
-           #:strcat))
+           #:strcat
+           #:mapstring))
 (in-package #:open-orders.utils)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -100,3 +101,20 @@
 (declaim (ftype (function (&rest (or null string)) string) strcat))
 (defun strcat (&rest strings)
   (apply #'concatenate 'string strings))
+
+(deftype mapstring-function ()  '(function (character)
+                                  (or null character string)))
+
+(declaim (ftype (function (mapstring-function string) string)))
+(defun mapstring (function string)
+  "Applies 'function' to every character of string and collects the results
+   into a new string"
+  (apply #'strcat
+         (map 'list
+              (lambda (ch)
+                (let ((out (funcall function ch)))
+                  (etypecase out
+                    (null "")
+                    (string out)
+                    (character (make-string 1 :initial-element out)))))
+              string)))

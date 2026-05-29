@@ -188,7 +188,7 @@
     "Packing List" "Additional Documents"))
 
 
-(defun create-labelled-row (obj label)
+(defun create-labeled-row (obj label)
   "Creates a row div and applies a label to it"
   (an:aprog1 (create-div obj :class "row")
     (create-p an:it :content label :class "label grow")))
@@ -214,9 +214,7 @@
     ;; PO-Details Content
     (*let ((po-details-div (div (first (items tabs))))
            (_top-gap (create-hr po-details-div))
-           (form (create-form po-details-div
-                                 :class "row wrap"
-                                 :method :get))
+           (form (create-form po-details-div :class "row wrap"))
            (_bottom-gap (create-hr po-details-div))
            (_1 (add-class form "row"))
            (col-left (create-div form :class "column grow"))
@@ -224,19 +222,32 @@
                               :class "vertical-line hide-on-mobile"))
            (col-right (create-div form :class "column grow")))
 
-      ;; Customer Code/Name
-      (create-form-element
-       (create-labelled-row col-left "Customer Code") :text :name "cc"
-       :class "grow")
-      (create-form-element
-       (create-labelled-row col-left "Customer Name") :text :name "cn"
-       :class "grow")
+      ;; Customer Code
+      (*let ((div (create-labeled-row col-left "Customer Code"))
+             (input-container (create-div div :class "row grow small-gap")))
+        (create-form-element input-container :text :name "cc"
+                             :class "grow")
+        (create-button input-container :class "grow" :content "Email Customer"))
 
-      (create-form-element col-left :submit)
+      ;; Customer Name
+      (set-on-click
+       (create-button (create-labeled-row col-left "Customer Name")
+                      :class "grow"
+                      :content "View Customer Information")
+       (fn (obj)
+         (let ((customer-code (name-value form "cc")))
+           (if (string= customer-code "")
+               ;;Then
+               (alert (window body) "No Customer Code")
+
+               ;;Else
+               (url-assign (location body)
+                           (format nil "/edit-customer?customer-code=~a"
+                                   (url:encode customer-code)))))))
 
       ;; File/Material/JobStatus
       (dolist (label '("File #" "Material Type" "Job Status" "Notes"))
-        (create-form-element (create-labelled-row col-right label) :text
+        (create-form-element (create-labeled-row col-right label) :text
                              :class "grow"))
 
       ;; (set-on-click (create-button col-left :content "get values")
