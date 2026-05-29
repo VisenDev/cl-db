@@ -8,28 +8,37 @@
 (in-package #:open-orders.utils)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  
   (defun ignored-binding-p (binding)
     (and (listp binding)
-         (char= #\_ (char (symbol-name (first binding)) 0))))
-  (defun binding->name (binding)
-    (if (listp binding)
-        (first binding)
-        binding)))
+         (char= #\_ (char (symbol-name (first binding)) 0)))))
+
 
 (defmacro *let (bindings &body body)
-  "let* except it allows underscore prefixed vars to be ignored automatically"
-  `(let* ,bindings
-     (declare (ignorable ,@(remove-duplicates
-                            (mapcar #'binding->name
-                                    (remove-if-not #'ignored-binding-p bindings)))))
-     ,@body))
+  "Like let* except _ prefixed variable names are replaced with a gensym'd
+   variable name and added to the ignore list"
+  (let* ((ignore-list nil)
+         (gensym-bindings (mapcar (lambda (form)
+                                    (if (ignored-binding-p form)
+                                        ;;then
+                                        (let ((sym (gensym)))
+                                          (push sym ignore-list)
+                                          (list sym (second form)))
+                                        ;; else
+                                        form))
+                                  bindings)))
+
+    ;; Generated form
+    `(let* ,gensym-bindings
+       (declare (ignore ,@ignore-list))
+       ,@body)))
+
 
 (defmacro fn (args &body body)
   "Shorter lambda that automatically makes args ignorable"
   `(lambda ,args
      (declare (ignorable ,@args))
      ,@body))
+
 
 (defun diff (a b)
   "returns the difference between two numbers"
