@@ -107,7 +107,7 @@
                     (url-assign (location body) "/login")))))
 
 (defun create-copyright-bar (body)
-  (let ((div (create-div body :class "footer row")))
+  (let ((div (create-div body :class "footer row spaced")))
     (dolist (msg '("Created By Wess Burnett" "Record ID #" "Work Order #"))
       (create-p div :content msg :class "column"))
     (create-a div :content "Copyright Wess Burnett, 2026"
@@ -143,7 +143,8 @@
 (declaim (ftype (function (clog-obj list) tab-bar) create-tab-bar))
 (defun create-tab-bar (obj tab-names)
   (let ((result (make-tab-bar)))
-    (setf (buttons-div result) (create-div obj :class "row margin column-on-mobile"))
+    (setf (buttons-div result)
+          (create-div obj :class "row small-gap margin spaced column-on-mobile"))
 
     ;; Create individual tab div-button pairs
     (loop :for i :from 0
@@ -205,10 +206,10 @@
 
   ;; Content
   (*let ((div (create-div body))
-
          (_header (create-div div :class "header"))
-         (content (create-div div))
-         (_footer (create-copyright-bar div))
+         (bordered-div (create-div div :class "bordered-body"))
+         (content (create-div bordered-div))
+         (_footer (create-copyright-bar bordered-div))
          (tabs (create-tab-bar content *on-edit-open-order-tabs*)))
 
     ;; PO-Details Content
@@ -245,14 +246,46 @@
                            (format nil "/edit-customer?customer-code=~a"
                                    (url:encode customer-code)))))))
 
+      ;; Horizontal line
+      (create-div col-left :class "horizontal-line")
+
+      ;; More Left Column Fields
+      (dolist (form '(("Purchase Order #" "po")
+                      ("Line Item" "li")
+                      ("Part Number" "pn")
+                      ("Description" "ds")
+                      ("Revision" "rv")
+                      ("Price Ea." "pe")))
+        (create-form-element
+         (create-labeled-row col-left (first form))
+         :text
+         :name (second form)
+         :class "grow"))
+
+      ;; Horizontal line
+      (create-div col-left :class "horizontal-line")
+
+      ;; Shipping Stuff (still left column)
+      (dolist (form '(("Ship Terms" "st")
+                      ("Billing Terms" "bt")
+                      ("Ship Notes" "sn")))
+        (create-form-element
+         (create-labeled-row col-left (first form))
+         :text
+         :name (second form)
+         :class "grow"))
+
       ;; File/Material/JobStatus
       (dolist (label '("File #" "Material Type" "Job Status" "Notes"))
         (create-form-element (create-labeled-row col-right label) :text
                              :class "grow"))
 
-      ;; (set-on-click (create-button col-left :content "get values")
-      ;;               (fn (obj)
-      ;;                 (alert (window body) (form-get-data form))))
+      ;; Delivery Extension Requested?
+      (create-hr col-right)
+      (create-form-element
+       (create-labeled-row col-right "Delivery Extension Requested?")
+       :checkbox
+       :name "der")
       )))
 
 (defun on-new-window (body)

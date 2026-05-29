@@ -15,6 +15,7 @@
     margin: 0px;
     padding: 0px;
     border: none;
+    font-size: 16px;
 }
 
 table {
@@ -53,6 +54,7 @@ body {
 hr {
     margin-top: 5px;
     margin-bottom: 5px;
+    margin-left: 100px;
 }
 
 button {
@@ -182,9 +184,19 @@ button:active {
 
 .vertical-line {
     width: 1px;
-    background-color: var(--border-color);
-    float: left;
-    margin: 5px;
+    /* background-color: var(--border-color); */
+    border-left: 1px solid var(--border-color);
+    /* float: left; */
+    margin-left: 5px;
+    margin-right: 5px;
+}
+
+.horizontal-line {
+    height: 1px;
+    /* background-color: var(--border-color); */
+    border-top: 1px solid var(--border-color);
+    margin-top: 5px;
+    margin-bottom: 5px;
 }
 
 .grow {
@@ -199,8 +211,13 @@ button:active {
     flex-wrap: wrap;
 }
 
+.bordered-body {
+    border: 10px solid var(--clicked-color);
+    padding: 5px;
+}
 
-@media (max-width: 900px) {
+
+@media (max-width: 800px) {
     .hide-on-mobile {
         display: none;
     }
