@@ -221,7 +221,9 @@
            (col-left (create-div form :class "column grow"))
            (_line (create-div form
                               :class "vertical-line hide-on-mobile"))
-           (col-right (create-div form :class "column grow")))
+           (col-right (create-div form :class "row grow"))
+           (col-right-primary (create-div col-right :class "column grow"))
+           (col-right-side (create-div col-right :class "column")))
 
       ;; Customer Code
       (*let ((div (create-labeled-row col-left "Customer Code"))
@@ -277,15 +279,26 @@
 
       ;; File/Material/JobStatus
       (dolist (label '("File #" "Material Type" "Job Status" "Notes"))
-        (create-form-element (create-labeled-row col-right label) :text
+        (create-form-element (create-labeled-row col-right-primary label) :text
                              :class "grow"))
 
       ;; Delivery Extension Requested?
-      (create-hr col-right)
+      (create-hr col-right-primary)
       (create-form-element
-       (create-labeled-row col-right "Delivery Extension Requested?")
+       (create-labeled-row col-right-primary "Delivery Extension Requested?")
        :checkbox
        :name "der")
+
+      ;; Documents
+      (create-p col-right-side :content "Documents")
+      (*let ((docs-box (create-div col-right-side :class "secondary"))
+             buttons-row)
+        (create-p docs-box :content "Attatched")
+        (setf buttons-row (create-div docs-box :class "secondary row border padded"))
+        (create-button buttons-row :content "Insert")
+        (create-button buttons-row :content "View")
+        (create-button buttons-row :content "X")
+        )
       )))
 
 (defun on-new-window (body)
