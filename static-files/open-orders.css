@@ -173,6 +173,10 @@ button:active {
     background-color: var(--secondary-color);
 }
 
+.border {
+  border: 1px solid var(--border-color);
+}
+
 .selected {
     background-color: var(--background-color);
     border-color: var(--background-color);
@@ -216,6 +220,16 @@ button:active {
     padding: 5px;
 }
 
+.padded {
+  padding: 2px;
+}
+
+.white {
+  color: var(--background-color);
+  padding: 0px;
+  margin: 0px;
+  font-weight: bold;
+}
 
 @media (max-width: 800px) {
     .hide-on-mobile {

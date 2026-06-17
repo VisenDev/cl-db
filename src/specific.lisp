@@ -221,7 +221,7 @@
            (col-left (create-div form :class "column grow"))
            (_line (create-div form
                               :class "vertical-line hide-on-mobile"))
-           (col-right (create-div form :class "row grow"))
+           (col-right (create-div form :class "row grow wrap"))
            (col-right-primary (create-div col-right :class "column grow"))
            (col-right-side (create-div col-right :class "column")))
 
@@ -289,15 +289,40 @@
        :checkbox
        :name "der")
 
+
+      ;; Release Schedule
+      (*let ((_spacer (create-hr col-right-primary))
+             (_label (create-p col-right-primary :content "Release Schedule" :style "text-align:center"))
+             (minibox (create-table col-right-primary :class "table"))
+             (miniheader (create-table-row minibox :class "header"))
+             (_1 (dolist (str '("Due Date" "QTY" "Balance Owed"))
+                   (create-p (create-table-column miniheader) :content str :class "white"))))
+
+        ;; Test row contents
+        (let ((row (create-table-row minibox)))
+          (create-table-column row :content "Test")
+          (create-table-column row :content "Test")
+          (create-table-column row :content "Test"))
+        
+        (let ((row (create-table-row minibox)))
+          (create-table-column row :content "Test")
+          (create-table-column row :content "Test")
+          (create-table-column row :content "Test"))
+        
+        (let ((row (create-table-row minibox)))
+          (create-table-column row :content "Test")
+          (create-table-column row :content "Test")
+          (create-table-column row :content "Test")))
+
       ;; Documents
-      (create-p col-right-side :content "Documents")
-      (*let ((docs-box (create-div col-right-side :class "secondary"))
+      (create-p col-right-side :content "Documents" :style "text-align:center;")
+      (*let ((docs-box (create-div col-right-side :class "secondary padded border" :style "text-align:center"))
              buttons-row)
         (create-p docs-box :content "Attatched")
-        (setf buttons-row (create-div docs-box :class "secondary row border padded"))
-        (create-button buttons-row :content "Insert")
-        (create-button buttons-row :content "View")
-        (create-button buttons-row :content "X")
+        (setf buttons-row (create-div docs-box :class "row padded"))
+        (create-button buttons-row :content "Insert" :class "padded")
+        (create-button buttons-row :content "View" :class "padded")
+        (create-button buttons-row :content "X" :class "padded")
         )
       )))
 
