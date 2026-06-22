@@ -17,7 +17,8 @@
                     (#:url #:open-orders.url-parser)
                     (#:auth #:open-orders.auth)
                     (#:class-ui #:open-orders.class-ui)
-                    (#:paths #:open-orders.paths)))
+                    (#:paths #:open-orders.paths))
+  (:export #:main))
 (in-package #:open-orders.specific)
 (declaim (optimize (debug 3)))
 
@@ -374,7 +375,7 @@
                  :when (member j hide-on-mobile-i)
                    :do (add-class col "hide-on-mobile"))))))
 
-(defun test ()
+(defun main ()
   (clog:initialize
    #'on-new-window
    :static-root (asdf:system-relative-pathname "open-orders"
@@ -382,3 +383,4 @@
   (clog:set-on-new-window #'on-edit-open-order :path "/edit-open-order")
   (clog:set-on-new-window #'on-login-page :path "/login")
   (clog:open-browser))
+

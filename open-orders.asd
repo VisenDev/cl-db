@@ -30,9 +30,12 @@
                              (:file "class-ui")
                              (:file "auth")
                              (:file "specific")))))
-#+nil
+
+
 (defsystem "open-orders/executable"
   :build-operation program-op
   :build-pathname "open-orders"
-  :entry-point "open-orders.main:main"
+
+  ;; TODO: create a better entry point
+  :entry-point "open-orders.specific:main"
   :depends-on ("open-orders"))
