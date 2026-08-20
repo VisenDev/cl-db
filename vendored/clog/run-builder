@@ -1,1 +1,0 @@
-sbcl --eval "(ql:quickload :clog/tools)" --eval "(clog-tools:clog-builder :port 0 :app t :start-browser t)"

@@ -1,8 +1,0 @@
-(defpackage #:<%= (@ sys-name) %>
-  (:use #:cl)
-  (:export start-app))
-
-(in-package :<%= (@ sys-name) %>)
-
-(defun start-app ()
-  (format t "Hello World~%"))

@@ -1,1 +1,0 @@
-c++ clogframe.cpp -std=c++11 -framework WebKit -o clogframe
