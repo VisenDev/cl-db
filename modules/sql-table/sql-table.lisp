@@ -1,4 +1,4 @@
-(defpackage #:sql-table
+(defpackage #:open-orders.sql-table
   (:use #:cl)
   (:export
    
@@ -30,7 +30,7 @@
    #:lisp-type->sql-type
    #:lisp-name->sql-name
    #:references-form-p))
-(in-package #:sql-table)
+(in-package #:open-orders.sql-table)
 
 ;;;; ==== OPTIONAL DEPENDENCIES ====
 (eval-when (:compile-toplevel)
