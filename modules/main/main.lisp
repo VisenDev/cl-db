@@ -8,8 +8,13 @@
     (unless token
       (hunchentoot:redirect "/login"))))
 
-(hunchentoot:define-easy-handler (login :uri "/login") (username password)
+(hunchentoot:define-easy-handler (login :uri "/login") ((username :init-form nil)
+                                                        (password :init-form nil))
 
+  ;; TODO setup proper auth
+  (when (or username password)
+    (hunchentoot:set-cookie *auth-cookie* :value "TODO")
+    (hunchentoot:redirect "/"))
   
   (setf (hunchentoot:content-type*) "text/html")
   (html ()
@@ -17,8 +22,6 @@
       (title () "Campro Login"))
     (body ()
       (h1 () "Campro Login")
-      (when (or username password)
-        (p () "Login not implemented yet :("))
       (table ()
         (form (:method "POST" :action "/login")
           (tr ()

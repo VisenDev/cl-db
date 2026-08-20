@@ -6,7 +6,7 @@
            #:deftags
 
            ;; Tags
-           h1 h2 h3 h4 h5 p
+           h1 h2 h3 h4 h5 p a
            abbreviation acronym address anchor
            applet area article aside
            audio base basefont bdi
@@ -41,25 +41,54 @@
            xmp))
 (in-package #:open-orders.pagen)
 
-(defconstant +doctype-html+ (defvar *doctype-html* "<!DOCTYPE html>"))
+(defmacro with-doc (&body body &environment env)
+  (format nil "~a" (loop :for form :in body
+                         :collect  (macroexpand form env))))
 
-(defun tag (name attributes-plist &rest contents)
-  (concatenate
-   'string
-   "<" (format nil "~a" name)
-   (loop :for (name value) :on attributes-plist :by #'cddr
-         :collect (format nil " ~a=\"~a\"" name value)
-           :into strs
-         :finally (return (string-downcase
-                           (apply #'concatenate 'string strs))))
-   ">"
-   (format nil "~{~a~}" (remove nil contents))
-   (format nil "</~a>" name)))
+(eval-when (:compile-toplevel)
+  (defun concatenate-string-p (form)
+    (and (listp form)
+         (eq 'concatenate (first form))
+         (equalp (quote (quote string)) (second form))))
+
+  (defun deduplicate-concatenate (forms)
+    (loop :for form :in forms
+          :appending
+          (if (concatenate-string-p form)
+              (cddr form)
+              (list form))))
+  
+  (defun compress-adjacent-strings (forms)
+    (let ((result nil))
+      (dolist (form forms)
+        (if (and (stringp (first result)) (stringp form))
+            (setf (first result)
+                  (concatenate 'string (first result) form))
+            (push form result)))
+      (nreverse result))))
+
+
+(defmacro tag (name attributes-plist &rest contents &environment env)
+  (compress-adjacent-strings
+   `(concatenate
+     'string
+     ,(concatenate
+       'string
+       "<" (format nil "~a" name)
+       (loop :for (name value) :on attributes-plist :by #'cddr
+             :collect (format nil " ~a=\"~a\"" name value)
+               :into strs
+             :finally (return (string-downcase
+                               (apply #'concatenate 'string strs))))
+       ">")
+     ,@(deduplicate-concatenate (mapcar (lambda (form) (macroexpand form env))
+                                        contents))
+     ,(format nil "</~a>" name))))
 
 (defmacro deftag (name)
   `(defmacro ,name (attributes-plist &body body)
      `(tag ,,(string-downcase (symbol-name name))
-           (list ,@attributes-plist) ,@body)))
+           ,attributes-plist ,@body)))
 
 (defmacro deftags (&body names)
   (loop :for name :in names
@@ -67,7 +96,7 @@
         :finally (return `(progn ,@forms))))
 
 (deftags
-  h1 h2 h3 h4 h5 p
+  h1 h2 h3 h4 h5 p a
   abbreviation acronym address anchor
   applet area article aside
   audio base basefont bdi
@@ -100,12 +129,23 @@
   underline var video wbr
   xmp)
 
+
+;; test
 #+nil
-(defparameter *test*
-  (html ()
-    (head ()
-      (title () "Testy Test"))
-    (body ()
-      (h1 (:class "header" :id "primary header"))
-      (h2 () "hello there")
-      (p () "hi"))))
+(html ()
+  (head ()
+    (title () "Testy Test"))
+  (body ()
+    (h1 (:class "header" :id "primary header"))
+    (h2 () (if (boundp 'foo)
+               (h3 () (a () "hello there")) "no foo"))
+    (p () "hi")))
+
+
+
+
+
+
+
+
+
