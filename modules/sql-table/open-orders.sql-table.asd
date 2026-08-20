@@ -7,4 +7,4 @@
     :components ((:file "sql-table")))
 
 (defsystem "open-orders.sql-table"
-    :depends-on ("sql-table/base dbi marshal"))
+    :depends-on ("open-orders.sql-table/base" "dbi" "marshal"))

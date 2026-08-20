@@ -24,7 +24,7 @@
            hr html iframe image
            input ins isindex italic
            kbd keygen label legend
-           link #|list|# main mark
+           link #|list|# #|main|# mark
            marquee menuitem meta meter
            nav nobreak noembed noscript
            object optgroup option output
@@ -38,14 +38,11 @@
            tfoot th thead #|time|#
            title tr track tt
            underline var video wbr
-           xmp))
+           xmp
+           #:doctype))
 (in-package #:open-orders.pagen)
 
-(defmacro with-doc (&body body &environment env)
-  (format nil "~a" (loop :for form :in body
-                         :collect  (macroexpand form env))))
-
-(eval-when (:compile-toplevel)
+(eval-when (:compile-toplevel :load-toplevel)
   (defun concatenate-string-p (form)
     (and (listp form)
          (eq 'concatenate (first form))
@@ -67,6 +64,10 @@
             (push form result)))
       (nreverse result))))
 
+(defmacro doctype (attributes-plist &body contents)
+  (declare (ignore attributes-plist))
+  `(concatenate 'string "<!DOCTYPE html>"
+                ,@contents))
 
 (defmacro tag (name attributes-plist &rest contents &environment env)
   (compress-adjacent-strings
@@ -113,7 +114,7 @@
   hr html iframe image
   input ins isindex italic
   kbd keygen label legend
-  link #|list|# main mark
+  link #|list|# #|main|# mark
   marquee menuitem meta meter
   nav nobreak noembed noscript
   object optgroup option output

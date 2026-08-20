@@ -2,7 +2,7 @@ LISP?=sbcl
 
 main:
 	$(LISP) --eval '(load "init.lisp")' \
-	--eval '(asdf:make "open-orders/executable")' \
+	--eval '(asdf:make "open-orders")' \
 	--eval '(uiop:quit)'
 
 clean:
