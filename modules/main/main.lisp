@@ -98,14 +98,36 @@
               :collect (td ()
                          (a (:href (format nil "~a" page)) page)))))))
 
-(hunchentoot:define-easy-handler (open-orders :uri "/open-orders") ()
+(hunchentoot:define-easy-handler (open-orders :uri "/open-orders") (sort-by)
   (perform-auth-check)
   (setf (hunchentoot:content-type*) "text/html")
   (with-page
     (h1 () "Campro Open Orders")
     (insert-tab-bar)
-    (p () "Open Orders Page")
-    (h3 () "Primary content goes here :)")))
+    (table ()
+      (tr ()
+        (th () (a (:href "/open-orders?sort-by=part" ) "Part Number"))
+        (th () (a (:href "/open-orders?sort-by=purchase-order" ) "Po Number"))
+        (th () (a (:href "/open-orders?sort-by=due-date" ) "Due Date"))
+        (th () (a (:href "/open-orders?sort-by=line-item" ) "Line Item"))
+        (button () "New"))
+      (loop :with raw-orders = (exec *db* (select-all 'open-order))
+            :with orders = (or (ignore-errors
+                                ;; TODO change how sorting here is implemented
+                                (sort raw-orders
+                                      #'string-greaterp
+                                      :key (let ((sym (intern sort-by)))
+                                             (lambda (order)
+                                               (slot-value order sym)))))
+                               raw-orders)
+            :for order :in orders
+            :collect
+            (tr ()
+              (td () (part-number (exec *db* (select 'part 'id (part order)))))
+              (td () (purchase-order order))
+              (td () "TODO")
+              (td () (line-item order)))))
+    ))
 
 (hunchentoot:define-easy-handler (customers :uri "/customers") ()
   (perform-auth-check)

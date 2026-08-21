@@ -29,7 +29,8 @@
    #:lisp-value->sql-value
    #:lisp-type->sql-type
    #:lisp-name->sql-name
-   #:references-form-p))
+   #:references-form-p
+   #:select-all))
 (in-package #:open-orders.sql-table)
 
 ;;;; ==== OPTIONAL DEPENDENCIES ====
