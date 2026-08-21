@@ -41,7 +41,8 @@
            #:contact-email
            #:contact-phone
            #:connection
-           #:db)
+           #:db
+           #:user-create-new)
   )
 (in-package #:open-orders.tables)
 
@@ -116,10 +117,13 @@
 (defclass/std connection ()
   ((user db)))
 
+
+;;; Utils
 (defun database-connect ()
   (let ((db (dbi:connect :sqlite3 :database-name "test.sqlite3")))
 
-    (dolist (class (closer-mop:class-direct-subclasses (find-class 'autodefined-table)))
+    (dolist (class
+             (closer-mop:class-direct-subclasses (find-class 'autodefined-table)))
       (exec db (create (class-name class) t)))
     db))
 
@@ -127,5 +131,15 @@
   (dbi:disconnect db))
 
 (defun %nuke-tables (db)
-  (dolist (class (closer-mop:class-direct-subclasses (find-class 'autodefined-table)))
+  (dolist (class
+           (closer-mop:class-direct-subclasses (find-class 'autodefined-table)))
     (exec db (drop (class-name class) t))))
+
+(defun user-create-new (name password)
+  (let ((db (database-connect)))
+    (exec
+     db (insert
+         (make-instance 'user
+                        :name name
+                        :hash (cl-pass:hash password))))
+    (database-disconnect db)))

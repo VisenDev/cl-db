@@ -73,17 +73,26 @@
   (compress-adjacent-strings
    `(concatenate
      'string
-     ,(concatenate
-       'string
-       "<" (format nil "~a" name)
-       (loop :for (name value) :on attributes-plist :by #'cddr
-             :collect (format nil " ~a=\"~a\"" name value)
-               :into strs
-             :finally (return (string-downcase
-                               (apply #'concatenate 'string strs))))
-       ">")
-     ,@(deduplicate-concatenate (mapcar (lambda (form) (macroexpand form env))
-                                        contents))
+     ,(format nil "<~a" name)
+     ,@(loop :for (name value) :on attributes-plist :by #'cddr
+             :collect (if (and (stringp name) (stringp value))
+                          (string-downcase
+                            (format nil " ~a=\"~a\"" name value))
+                          `(string-downcase
+                            (format nil " ~a=\"~a\"" ,name ,value))))
+     ">"
+     ,@(deduplicate-concatenate
+        (mapcar (lambda (form)
+                  (let ((expanded (macroexpand form env)))
+                    (cond ((stringp expanded)
+                           expanded)
+                          (t (let ((result (gensym)))
+                               `(let ((,result ,expanded))
+                                  (if (listp ,result)
+                                      (format nil "~{~a~}" ,result)
+                                      (format nil "~a" ,result)))))))
+)
+                      contents))
      ,(format nil "</~a>" name))))
 
 (defmacro deftag (name)

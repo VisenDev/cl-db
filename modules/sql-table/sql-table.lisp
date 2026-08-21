@@ -33,7 +33,7 @@
 (in-package #:open-orders.sql-table)
 
 ;;;; ==== OPTIONAL DEPENDENCIES ====
-(eval-when (:compile-toplevel)
+(eval-when (:compile-toplevel :load-toplevel)
   (when (find-package '#:dbi)
     (pushnew :dbi *features*))
   (when (find-package '#:marshal)
@@ -425,7 +425,9 @@
                      (list
                       (instance->primary-key-value instance))))))
 
-;;;; DBI INTEGRATION
+(defgeneric exec (database-handle statement))
+
+;;;; OPTIONAL DBI INTEGRATION
 #+dbi
 (defmethod exec ((database-handle dbi:dbi-connection) statement)
   (let ((query (dbi:prepare database-handle (statement-sql statement))))
