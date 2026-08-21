@@ -38,6 +38,10 @@
   (crypto:byte-array-to-hex-string
    (crypto:random-data 16)))
 
+(hunchentoot:define-easy-handler (logouyt :uri "/logout") ()
+  (hunchentoot:set-cookie *auth-cookie* :value nil)
+  (hunchentoot:redirect "/login"))
+
 (hunchentoot:define-easy-handler (login :uri "/login") ((username :init-form nil)
                                                         (password :init-form nil))
 
@@ -87,7 +91,7 @@
   (hunchentoot:redirect "/open-orders"))
 
 (defun insert-tab-bar ()
-  (let ((pages '("open-orders" "customers" "inventory")))
+  (let ((pages '("logout" "open-orders" "customers" "inventory")))
     (table ()
       (tr ()
         (loop :for page :in pages
@@ -100,8 +104,26 @@
   (with-page
     (h1 () "Campro Open Orders")
     (insert-tab-bar)
-    (p () "Primary content goes here :)"))
-  )
+    (p () "Open Orders Page")
+    (h3 () "Primary content goes here :)")))
+
+(hunchentoot:define-easy-handler (customers :uri "/customers") ()
+  (perform-auth-check)
+  (setf (hunchentoot:content-type*) "text/html")
+  (with-page
+    (h1 () "Campro Open Orders")
+    (insert-tab-bar)
+    (p () "Customers Page")
+    (h3 () "Primary content goes here :)")))
+
+(hunchentoot:define-easy-handler (inventory :uri "/inventory") ()
+  (perform-auth-check)
+  (setf (hunchentoot:content-type*) "text/html")
+  (with-page
+    (h1 () "Campro Open Orders")
+    (insert-tab-bar)
+    (p () "Inventory Page")
+    (h3 () "Primary content goes here :)")))
 
 
 (defun main ()

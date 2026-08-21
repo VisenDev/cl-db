@@ -64,35 +64,53 @@
             (push form result)))
       (nreverse result))))
 
-(defmacro doctype (attributes-plist &body contents)
+(defmacro doctype (attributes-plist &body contents &environment env)
+  "Special doctype tag"
   (declare (ignore attributes-plist))
   `(concatenate 'string "<!DOCTYPE html>"
-                ,@contents))
+                ,@(deduplicate-concatenate
+                   (mapcar (lambda (form) (macroexpand form env)) contents))))
 
 (defmacro tag (name attributes-plist &rest contents &environment env)
   (compress-adjacent-strings
    `(concatenate
      'string
+
+     ;; Tag Open
      ,(format nil "<~a" name)
      ,@(loop :for (name value) :on attributes-plist :by #'cddr
-             :collect (if (and (stringp name) (stringp value))
+             :collect (if (and (or (stringp name) (keywordp name))
+                               (or (stringp value) (keywordp value)))
+
+                          ;; create the attributes string at compile time if possible
                           (string-downcase
-                            (format nil " ~a=\"~a\"" name value))
+                           (format nil " ~a=\"~a\"" name value))
+
+                          ;; otherwise just create the code to do so at runtime
                           `(string-downcase
                             (format nil " ~a=\"~a\"" ,name ,value))))
      ">"
+
+     ;; Tag body, with nest (concatenate 'string) forms collapsed
      ,@(deduplicate-concatenate
         (mapcar (lambda (form)
+
+                  ;; macroexpand body to so that we can optimize
                   (let ((expanded (macroexpand form env)))
-                    (cond ((stringp expanded)
+
+                    ;; if the form is a string, we can just return it as is
+                    (cond ((or (stringp expanded) (concatenate-string-p expanded)) 
                            expanded)
+
+                          ;; Otherwise the form needs to be formatted at runtime
                           (t (let ((result (gensym)))
                                `(let ((,result ,expanded))
                                   (if (listp ,result)
                                       (format nil "~{~a~}" ,result)
-                                      (format nil "~a" ,result)))))))
-)
-                      contents))
+                                      (format nil "~a" ,result))))))))
+                contents))
+
+     ;; Tag Close
      ,(format nil "</~a>" name))))
 
 (defmacro deftag (name)
