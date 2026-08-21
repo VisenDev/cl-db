@@ -4,6 +4,6 @@
   :serial t
   :depends-on ("open-orders.sql-table" "open-orders.pagen"
                "defclass-std" "uiop" "closer-mop" "hunchentoot"
-               "ironclad" "cl-pass")
+               "ironclad" "cl-pass" "asdf")
   :components ((:file "tables")
                (:file "main")))
