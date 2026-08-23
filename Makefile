@@ -7,4 +7,5 @@ main:
 
 clean:
 	find . -type f -name '*.fasl' -exec trash {} \;
+	if [ -e ./open-orders ]; then trash open-orders; fi
 
