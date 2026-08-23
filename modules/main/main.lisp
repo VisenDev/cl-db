@@ -110,7 +110,7 @@
         (th () (a (:href "/open-orders?sort-by=purchase-order" ) "Po Number"))
         (th () (a (:href "/open-orders?sort-by=due-date" ) "Due Date"))
         (th () (a (:href "/open-orders?sort-by=line-item" ) "Line Item"))
-        (button () "New"))
+        (th () (a (:href "/open-orders-create-new") (button () "New"))))
       (loop :with raw-orders = (exec *db* (select-all 'open-order))
             :with orders = (or (ignore-errors
                                 ;; TODO change how sorting here is implemented
