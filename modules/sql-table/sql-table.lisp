@@ -1,15 +1,15 @@
 (defpackage #:open-orders.sql-table
   (:use #:cl)
   (:export
-   
+
    #:sql-table
-   
+
    #:select
    #:insert
    #:drop
    #:create
    #:update
-   
+
    #:exec
    #:statement
    #:make-statement
@@ -93,7 +93,7 @@
     ((eq type 'symbol) (let ((*read-eval* nil)) (read-from-string value)))
     ((eq type 'boolean) (if (= value 1) t nil))
     ((subtypep type 'real) value)
-    
+
     (t
      #+marshal (marshal:unmarshal
                 (let ((*read-eval* nil)) (read-from-string value)))
@@ -148,7 +148,7 @@
 
 (defmethod class->table ((class standard-class))
   (closer-mop:ensure-finalized class)
-  (let* ((name (class-name class))
+  (let ((name (class-name class))
          (slots (closer-mop:class-slots class)))
     (flet ((persistent-slots ()
              (let* ((names (mapcar #'closer-mop:slot-definition-name slots))
@@ -275,7 +275,7 @@
                        (find-class 'sql-table-direct-slot-definition)))
                  direct-slots)
     (error "Invalid direct slot class for ~a" direct-slots))
-  
+
   (let ((eslot (call-next-method))
         (slot-name (some #'closer-mop:slot-definition-name direct-slots))
         (class-name (class-name class))
@@ -306,7 +306,7 @@
         ((classname (eql class-name))
          (slotname (eql slot-name)))
       not-null-p)
-    
+
     eslot))
 
 
@@ -320,8 +320,7 @@
   ;; selected-slot-types
   ;; selected-classname
   fetch
-  fetch-results-parse-function 
-  )
+  fetch-results-parse-function)
 
 
 
@@ -351,13 +350,13 @@
 ;;;; ==== PUBLIC API ====
 (defun create (classname &optional if-not-exists)
   (make-statement
-   :sql (table.sql.create-table (class->table 
+   :sql (table.sql.create-table (class->table
                                  (find-finalized-class classname))
                                 :if-not-exists if-not-exists)))
 
 (defun drop (classname &optional if-exists)
   (make-statement
-   :sql (table.sql.drop-table (class->table 
+   :sql (table.sql.drop-table (class->table
                                  (find-finalized-class classname))
                               :if-exists if-exists)))
 
@@ -372,7 +371,7 @@
 
 (defun parse-select-statement-results (values names types classname)
   "Parses a list of sql values the data contained in statement"
-  (let* ((instance (make-instance classname)))
+  (let ((instance (make-instance classname)))
     (assert (= (length values)
                (length types)
                (length names)))

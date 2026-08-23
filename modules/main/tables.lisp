@@ -1,8 +1,7 @@
 (defpackage #:open-orders.tables
   (:use #:cl #:open-orders.sql-table)
   (:import-from #:defclass-std
-                #:defclass/std
-                #:class/std)
+                #:defclass/std)
   (:export #:user
            #:person
            #:customer
@@ -42,8 +41,7 @@
            #:contact-phone
            #:connection
            #:db
-           #:user-create-new)
-  )
+           #:user-create-new))
 (in-package #:open-orders.tables)
 
 (defclass autodefined-table () ())

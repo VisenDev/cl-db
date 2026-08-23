@@ -7,13 +7,16 @@
    #:main))
 (in-package #:open-orders.main)
 
-(defvar *db* nil)
+(defclass-std:class/std app db acceptor)
+(defvar *app* nil)
+
+
 (defparameter *auth-cookie* "AUTH_TOKEN")
 (defun perform-auth-check ()
   (let ((token (hunchentoot:cookie-in *auth-cookie*)))
     (unless token
       (hunchentoot:redirect "/login"))
-    (let ((user (exec *db* (select 'user 'authentication-token token))))
+    (let ((user (exec (db *app*) (select 'user 'authentication-token token))))
       (unless user
         (hunchentoot:redirect "/login")))))
 
@@ -49,12 +52,12 @@
 
     ;; Attempt login
     (when (or username password)
-      (let ((user (exec *db* (select 'user 'name username))))
+      (let ((user (exec (db *app*) (select 'user 'name username))))
         (cond
           ;; Success
           ((and user (cl-pass:check-password password (hash user)))
            (setf (authentication-token user) (auth-token-create))
-           (exec *db* (update user))
+           (exec (db *app*) (update user))
            (hunchentoot:set-cookie *auth-cookie*
                                    :value (authentication-token user))
            (hunchentoot:redirect "/"))
@@ -111,7 +114,7 @@
         (th () (a (:href "/open-orders?sort-by=due-date" ) "Due Date"))
         (th () (a (:href "/open-orders?sort-by=line-item" ) "Line Item"))
         (th () (a (:href "/open-orders-create-new") (button () "New"))))
-      (loop :with raw-orders = (exec *db* (select-all 'open-order))
+      (loop :with raw-orders = (exec (db *app*) (select-all 'open-order))
             :with orders = (or (ignore-errors
                                 ;; TODO change how sorting here is implemented
                                 (sort raw-orders
@@ -123,11 +126,10 @@
             :for order :in orders
             :collect
             (tr ()
-              (td () (part-number (exec *db* (select 'part 'id (part order)))))
+              (td () (part-number (exec (db *app*) (select 'part 'id (part order)))))
               (td () (purchase-order order))
               (td () "TODO")
-              (td () (line-item order)))))
-    ))
+              (td () (line-item order)))))))
 
 (hunchentoot:define-easy-handler (customers :uri "/customers") ()
   (perform-auth-check)
@@ -147,14 +149,25 @@
     (p () "Inventory Page")
     (h3 () "Primary content goes here :)")))
 
+(defun start ()
+  (unless *app*
+    (setf *app*
+          (make-instance
+           'app
+           :db (open-orders.tables:database-connect)
+           :acceptor (make-instance 'hunchentoot:easy-acceptor :port 8000))))
+  (hunchentoot:start (acceptor *app*)))
+
+(defun stop ()
+  (when *app*
+    (when (db *app*)
+      (open-orders.tables:database-disconnect (db *app*)))
+    (when (acceptor *app*)
+      (hunchentoot:stop (acceptor *app*))))
+  (setf *app* nil))
+
 
 (defun main ()
-  (unless *db*
-    (setf *db* (open-orders.tables:database-connect)))
-  (let ((acc (make-instance 'hunchentoot:easy-acceptor :port 8000)))
-    (unwind-protect
-         (progn
-           (hunchentoot:start acc)
-           ;; sleep while waiting for connections
-           (loop (sleep 1)))
-      (hunchentoot:stop acc))))
+  (start)
+  (unwind-protect (loop (sleep 1))
+    (stop)))

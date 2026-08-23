@@ -4,41 +4,40 @@
            #:tag
            #:+doctype-html+
            #:deftags
-
            ;; Tags
-           h1 h2 h3 h4 h5 p a
-           abbreviation acronym address anchor
-           applet area article aside
-           audio base basefont bdi
-           bdo bgsound big blockquote
-           body bold #|break|# button
-           caption canvas center cite
-           code colgroup col comment
-           data datalist dd define
+           #:h1 #:h2 #:h3 #:h4 #:h5 #:p #:a
+           #:abbreviation #:acronym #:address #:anchor
+           #:applet #:area #:article #:aside
+           #:audio #:base #:basefont #:bdi
+           #:bdo #:bgsound #:big #:blockquote
+           #:body #:bold #|break|# #:button
+           #:caption #:canvas #:center #:cite
+           #:code #:colgroup #:col #:comment
+           #:data #:datalist #:dd #:define
            #|delete|#
-           details dialog dir
-           div dl dt embed
-           fieldset figcaption figure font
-           footer form frame frameset
-           head header heading hgroup
-           hr html iframe image
-           input ins isindex italic
-           kbd keygen label legend
-           link #|list|# #|main|# mark
-           marquee menuitem meta meter
-           nav nobreak noembed noscript
-           object optgroup option output
-           paragraph param em pre
-           progress q rp rt
-           ruby s samp script
-           section small source spacer
-           span strike strong style
-           sub sup summary svg
-           table tbody td template
-           tfoot th thead #|time|#
-           title tr track tt
-           underline var video wbr
-           xmp
+           #:details #:dialog #:dir
+           #:div #:dl #:dt #:embed
+           #:fieldset #:figcaption #:figure #:font
+           #:footer #:form #:frame #:frameset
+           #:head #:header #:heading #:hgroup
+           #:hr #:html #:iframe #:image
+           #:input #:ins #:isindex #:italic
+           #:kbd #:keygen #:label #:legend
+           #:link #|list|# #|main|# #:mark
+           #:marquee #:menuitem #:meta #:meter
+           #:nav #:nobreak #:noembed #:noscript
+           #:object #:optgroup #:option #:output
+           #:paragraph #:param #:em #:pre
+           #:progress #:q #:rp #:rt
+           #:ruby #:s #:samp #:script
+           #:section #:small #:source #:spacer
+           #:span #:strike #:strong #:style
+           #:sub #:sup #:summary #:svg
+           #:table #:tbody #:td #:template
+           #:tfoot #:th #:thead #|time|#
+           #:title #:tr #:track #:tt
+           #:underline #:var #:video #:wbr
+           #:xmp
            #:doctype))
 (in-package #:open-orders.pagen)
 
@@ -54,7 +53,7 @@
           (if (concatenate-string-p form)
               (cddr form)
               (list form))))
-  
+
   (defun compress-adjacent-strings (forms)
     (let ((result nil))
       (dolist (form forms)
@@ -99,7 +98,7 @@
                   (let ((expanded (macroexpand form env)))
 
                     ;; if the form is a string, we can just return it as is
-                    (cond ((or (stringp expanded) (concatenate-string-p expanded)) 
+                    (cond ((or (stringp expanded) (concatenate-string-p expanded))
                            expanded)
 
                           ;; Otherwise the form needs to be formatted at runtime
