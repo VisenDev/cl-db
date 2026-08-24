@@ -70,8 +70,9 @@
     (t "BLOB")))
 
 (defun lisp-value->sql-value (type value)
-  (assert (or (null value)
-              (typep value type)))
+  (unless (or (null value)
+              (typep value type))
+    (break "Found ~a of type ~a, expected type ~a" value (type-of value) type))
   (cond
     ((subtypep type 'real) value)
     ((eq type 'string) value)

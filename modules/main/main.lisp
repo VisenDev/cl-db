@@ -101,6 +101,35 @@
               :collect (td ()
                          (a (:href (format nil "~a" page)) page)))))))
 
+
+(defun get-open-orders-sorted-by (sort-by)
+  (let ((raw (exec (db *app*) (select-all 'open-order))))
+    (if (null sort-by)
+        raw
+        ;; else
+        (sort
+         raw 
+         (alexandria:switch (sort-by :test #'string=)
+           ("part"
+            (lambda (lhs rhs)
+              (string-lessp
+               (ignore-errors
+                (part-number (exec (db *app*) (select 'part 'id (part lhs)))))
+               (ignore-errors
+                (part-number (exec (db *app*) (select 'part 'id (part rhs))))))))
+           ("purchase-order"
+            (lambda (lhs rhs)
+              (string-lessp (purchase-order lhs)
+                            (purchase-order rhs))))
+           ("due-date"
+            (lambda (lhs rhs)
+              (< (open-order-deadline lhs)
+                 (open-order-deadline rhs))))
+           ("line-item"
+            (lambda (lhs rhs)
+              (< (line-item lhs)
+                 (line-item rhs)))))))))
+
 (hunchentoot:define-easy-handler (open-orders :uri "/open-orders") (sort-by)
   (perform-auth-check)
   (setf (hunchentoot:content-type*) "text/html")
@@ -113,23 +142,55 @@
         (th () (a (:href "/open-orders?sort-by=purchase-order" ) "Po Number"))
         (th () (a (:href "/open-orders?sort-by=due-date" ) "Due Date"))
         (th () (a (:href "/open-orders?sort-by=line-item" ) "Line Item"))
-        (th () (a (:href "/open-orders-create-new") (button () "New"))))
-      (loop :with raw-orders = (exec (db *app*) (select-all 'open-order))
-            :with orders = (or (ignore-errors
-                                ;; TODO change how sorting here is implemented
-                                (sort raw-orders
-                                      #'string-greaterp
-                                      :key (let ((sym (intern sort-by)))
-                                             (lambda (order)
-                                               (slot-value order sym)))))
-                               raw-orders)
-            :for order :in orders
-            :collect
-            (tr ()
-              (td () (part-number (exec (db *app*) (select 'part 'id (part order)))))
-              (td () (purchase-order order))
-              (td () "TODO")
-              (td () (line-item order)))))))
+        (th () (a (:href "/new?type=order") (button () "New"))))
+      (macrolet
+          ((with-link-to-edit-url (&body body)
+             `(a (:href (format nil "/edit?type=order&id=~a"
+                                (url-rewrite:url-encode
+                                 (format nil "~a" (id order)))))
+                ,@body)))
+        (mapcar (lambda (order)
+
+                  (tr ()
+                    
+                    (td ()
+                      (with-link-to-edit-url
+                          (ignore-errors
+                           (part-number
+                            (exec (db *app*)
+                                  (select 'part 'id (part order)))))))
+                    (td () (with-link-to-edit-url (purchase-order order)))
+                    (td () (with-link-to-edit-url "TODO"))
+                    (td () (with-link-to-edit-url (line-item order)))))
+                (get-open-orders-sorted-by sort-by))))))
+
+(hunchentoot:define-easy-handler (new :uri "/new") (type)
+  (perform-auth-check)
+  (with-page 
+    (alexandria:switch (type :test #'string=)
+      ("order"
+       (let ((id (exec (db *app*)
+                       (insert (make-instance
+                                'open-order
+                                :purchase-order (auth-token-create))))))
+         (hunchentoot:redirect (format nil "/edit?type=order&id=~a"
+                                       (url-rewrite:url-encode
+                                        ;; TODO: swap out url-rewrite with
+                                        ;; my own package
+                                        (format nil "~a" id))))))
+      (otherwise
+       (h1 () "Error: don't know how to make a new '~a'" type)))))
+
+(hunchentoot:define-easy-handler (edit :uri "/edit") (type id)
+  (perform-auth-check)
+  (with-page
+    (alexandria:switch (type :test #'string=)
+      ("order"
+       (list
+        (insert-tab-bar)
+        (h1 () (format nil "Editing open order ~a" id))))
+      (otherwise
+       (h1 () "Error: don't know how to edit '~a'" type)))))
 
 (hunchentoot:define-easy-handler (customers :uri "/customers") ()
   (perform-auth-check)

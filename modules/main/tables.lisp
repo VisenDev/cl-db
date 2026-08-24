@@ -41,7 +41,16 @@
            #:contact-phone
            #:connection
            #:db
-           #:user-create-new))
+           #:user-create-new
+           #:scheduled-shipment
+           #:make-scheduled-shipment
+           #:scheduled-shipment-p
+           #:copy-scheduled-shipment
+           #:scheduled-shipment-date
+           #:scheduled-shipment-quota
+           #:scheduled-shipment-amount
+           #:scheduled-shipment-completed-p
+           #:open-order-deadline))
 (in-package #:open-orders.tables)
 
 (defclass autodefined-table () ())
@@ -81,6 +90,17 @@
   ((name :type string))
   (:metaclass sql-table))
 
+(defstruct scheduled-shipment
+  (date (get-universal-time) :type integer)
+  (quota 0 :type integer)
+  (amount 0 :type integer))
+
+(declaim (ftype (function (scheduled-shipment) boolean)
+                scheduled-shipment-completed-p))
+(defun scheduled-shipment-completed-p (shipment)
+  (>= (scheduled-shipment-amount shipment)
+      (scheduled-shipment-quota shipment)))
+
 (defclass/std part (open-orders-table autodefined-table)
   ((part-number :type string)
    (description :type string)
@@ -109,8 +129,16 @@
    (billing-terms :type string :std "Net 30")
    (ship-notes :type string)
    (material :type integer :references (material id))
-   (run-status :type string))
+   (run-status :type string)
+   (scheduled-shipments :type list :doc "list of scheduled-shipment"))
   (:metaclass sql-table))
+
+(declaim (ftype (function (open-order) integer) open-order-deadline))
+(defun open-order-deadline (open-order)
+  (let ((filtered (remove-if #'scheduled-shipment-completed-p
+                             (scheduled-shipments open-order))))
+    (loop :for shipment :in filtered
+          :minimize (scheduled-shipment-date shipment))))
 
 (defclass/std connection ()
   ((user db)))
