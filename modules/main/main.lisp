@@ -188,20 +188,107 @@
       (otherwise
        (h1 () "Error: don't know how to make a new '~a'" type)))))
 
+(defmacro when-assoc ((varname key alist) &body body)
+  (alexandria:with-gensyms (keyval value)
+    `(let* ((,keyval ,key)
+            (,value (assoc ,key ,alist :test #'string-equal))
+            (,varname (cdr ,value)))
+       (declare (ignorable ,value ,keyval ,varname))
+       (when ,varname
+         ,@body))))
+
+(hunchentoot:define-easy-handler
+    (save-order-po-details :uri "/save-order") (id tab)
+
+  (perform-auth-check)
+  
+  (let ((params (hunchentoot:post-parameters*))
+        (order (exec (db *app*) (select 'open-order 'id (parse-integer id)))))
+
+    (print "Looking for order")
+    (terpri)
+    (when order
+      (print "Order found!")
+      (terpri)
+
+      (print params)
+      (terpri)
+
+      ;; Customer Code
+      (when-assoc (customer-code 'customer-code params)
+        (let ((customer (exec (db *app*) (select 'customer 'name customer-code))))
+          (if customer
+              
+              ;;customer found, update id
+              (progn
+                (setf (customer order) (id customer))
+                (print "customer found")
+                (terpri))
+
+              ;; else create new customer
+              (let* ((new-customer (make-instance 'customer
+                                                  :name customer-code))
+                     (new-customer-id (exec (db *app*)
+                                            (insert new-customer))))
+                (print "Creating a new customer")
+                (terpri)
+                (setf (customer order) new-customer-id)))))
+
+      ;; finally save order and redirect
+      (exec (db *app*) (update order)))
+
+    ;; Redirect back to app
+    (hunchentoot:redirect (format nil "/edit-order?id=~a&tab=~a"
+                                  id tab)
+                          :code 303)))
+
 (hunchentoot:define-easy-handler (edit-order :uri "/edit-order") (id tab)
   ;; redirect to po-details tab
-
-  (flet ((tab-link (tab)
-           (format nil "/edit-order?id=~a&tab=~a" id tab)))
-    (unless tab
-      (hunchentoot:redirect (tab-link "po-details")))
-    (with-internal-page
-      (link-bar ("po-details" (tab-link "po-details"))
-                ("job-ticket" (tab-link "job-ticket"))
-                ("shipping-details" (tab-link "shipping-details"))
-                ("certificate-of-conformance"
-                 (tab-link "certificate-of-conformance")))
-      (h1 () (format nil "Editing open order ~a" id)))))
+  (format t "id=~S,tab=~S~%" id tab)
+  (let ((order (exec (db *app*) (select 'open-order 'id (parse-integer id)))))
+    (flet ((tab-link (tab)
+             (format nil "/save-order?id=~a&tab=~a" id tab)))
+      (unless tab
+        (hunchentoot:redirect (tab-link "po-details")))
+      (with-internal-page
+        (link-bar ("po-details" (tab-link "po-details"))
+                  ("job-ticket" (tab-link "job-ticket"))
+                  ("shipping-details" (tab-link "shipping-details"))
+                  ("certificate-of-conformance"
+                   (tab-link "certificate-of-conformance")))
+        (h1 ()
+          (hunchentoot:post-parameters*))
+        (form (:method "POST" :action (tab-link "po-details"))
+          (table ()
+            (tr ()
+              (td () (input (:type "submit"))))
+            (tr ()
+              (td ()
+                (table ()
+                  (tr ()
+                    (td () "Customer Code")
+                    (td ()
+                      (input (:type "text" :name "customer-code"
+                              :id "customer-code" :list "customer-code-list"
+                              :value (ignore-errors
+                                      (or
+                                       (name
+                                        (or (exec (db *app*)
+                                                  (select 'customer 'id
+                                                          (customer order)))))
+                                       "")))))
+                    (datalist (:id "customer-code-list")
+                      (mapcar #'name (exec (db *app*)
+                                           (select-all 'customer)))))
+                  (tr ()
+                    (td () "Customer Name")
+                    (td () (a (:href "/edit-customer?id=TODO"
+                               :style "padding:none;")
+                             (button () "View Customer Information")))))
+                ))
+            )
+          )
+        ))))
 
 (hunchentoot:define-easy-handler (customers :uri "/customers") ()
   (with-internal-page
