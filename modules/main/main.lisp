@@ -7,16 +7,25 @@
    #:main))
 (in-package #:open-orders.main)
 
-(defclass-std:class/std app db acceptor)
-(defvar *app* nil)
+(defvar *acceptor* nil)
 
+
+;; (defmacro when-object-exists ((varname class id) (&body then) &optional (&body else))
+;;   (alexandria:with-gensyms (parsed-id id-value)
+;;     `(let ((,id-value ,id)
+;;            (,parsed-id (the 'integer
+;;                             (if (stringp ,value)
+;;                                 (parse-integer ,id-value)
+;;                                 )))))
+;;     )
+;;   )
 
 (defparameter *auth-cookie* "AUTH_TOKEN")
 (defun perform-auth-check ()
   (let ((token (hunchentoot:cookie-in *auth-cookie*)))
     (unless token
       (hunchentoot:redirect "/login"))
-    (let ((user (exec (db *app*) (select 'user 'authentication-token token))))
+    (let ((user (select 'user 'authentication-token token)))
       (unless user
         (hunchentoot:redirect "/login")))))
 
@@ -77,12 +86,12 @@
 
     ;; Attempt login
     (when (or username password)
-      (let ((user (exec (db *app*) (select 'user 'name username))))
+      (let ((user (select 'user 'name username)))
         (cond
           ;; Success
           ((and user (cl-pass:check-password password (hash user)))
            (setf (authentication-token user) (auth-token-create))
-           (exec (db *app*) (update user))
+           (update user)
            (hunchentoot:set-cookie *auth-cookie*
                                    :value (authentication-token user))
            (hunchentoot:redirect "/"))
@@ -121,7 +130,7 @@
 
 
 (defun get-open-orders-sorted-by (sort-by)
-  (let ((raw (exec (db *app*) (select-all 'open-order))))
+  (let ((raw (select-all 'open-order)))
     (if (null sort-by)
         raw
         ;; else
@@ -132,9 +141,9 @@
             (lambda (lhs rhs)
               (string-lessp
                (ignore-errors
-                (part-number (exec (db *app*) (select 'part 'id (part lhs)))))
+                (part-number (select 'part 'id (part lhs))))
                (ignore-errors
-                (part-number (exec (db *app*) (select 'part 'id (part rhs))))))))
+                (part-number (select 'part 'id (part rhs)))))))
            ("purchase-order"
             (lambda (lhs rhs)
               (string-lessp (purchase-order lhs)
@@ -169,8 +178,7 @@
                       (with-link-to-edit-url
                           (ignore-errors
                            (part-number
-                            (exec (db *app*)
-                                  (select 'part 'id (part order)))))))
+                            (select 'part 'id (part order))))))
                     (td () (with-link-to-edit-url (purchase-order order)))
                     (td () (with-link-to-edit-url "TODO"))
                     (td () (with-link-to-edit-url (line-item order)))))
@@ -180,10 +188,9 @@
   (with-internal-page 
     (alexandria:switch (type :test #'string=)
       ("order"
-       (let ((id (exec (db *app*)
-                       (insert (make-instance
-                                'open-order
-                                :purchase-order (auth-token-create))))))
+       (let ((id (insert (make-instance
+                          'open-order
+                          :purchase-order (auth-token-create)))))
          (hunchentoot:redirect (format nil "/edit-order?id=~a" id))))
       (otherwise
        (h1 () "Error: don't know how to make a new '~a'" type)))))
@@ -203,7 +210,7 @@
   (perform-auth-check)
   
   (let ((params (hunchentoot:post-parameters*))
-        (order (exec (db *app*) (select 'open-order 'id (parse-integer id)))))
+        (order (select 'open-order 'id (parse-integer id))))
 
     (print "Looking for order")
     (terpri)
@@ -216,7 +223,7 @@
 
       ;; Customer Code
       (when-assoc (customer-code 'customer-code params)
-        (let ((customer (exec (db *app*) (select 'customer 'name customer-code))))
+        (let ((customer (select 'customer 'name customer-code)))
           (if customer
               
               ;;customer found, update id
@@ -228,14 +235,13 @@
               ;; else create new customer
               (let* ((new-customer (make-instance 'customer
                                                   :name customer-code))
-                     (new-customer-id (exec (db *app*)
-                                            (insert new-customer))))
+                     (new-customer-id (insert new-customer)))
                 (print "Creating a new customer")
                 (terpri)
                 (setf (customer order) new-customer-id)))))
 
       ;; finally save order and redirect
-      (exec (db *app*) (update order)))
+      (update order))
 
     ;; Redirect back to app
     (hunchentoot:redirect (format nil "/edit-order?id=~a&tab=~a"
@@ -245,7 +251,7 @@
 (hunchentoot:define-easy-handler (edit-order :uri "/edit-order") (id tab)
   ;; redirect to po-details tab
   (format t "id=~S,tab=~S~%" id tab)
-  (let ((order (exec (db *app*) (select 'open-order 'id (parse-integer id)))))
+  (let ((order (select 'open-order 'id (parse-integer id))))
     (flet ((tab-link (tab)
              (format nil "/save-order?id=~a&tab=~a" id tab)))
       (unless tab
@@ -272,14 +278,11 @@
                               :id "customer-code" :list "customer-code-list"
                               :value (ignore-errors
                                       (or
-                                       (name
-                                        (or (exec (db *app*)
-                                                  (select 'customer 'id
-                                                          (customer order)))))
+                                       (name (select 'customer 'id
+                                                     (customer order)))
                                        "")))))
                     (datalist (:id "customer-code-list")
-                      (mapcar #'name (exec (db *app*)
-                                           (select-all 'customer)))))
+                      (mapcar #'name (select-all 'customer))))
                   (tr ()
                     (td () "Customer Name")
                     (td () (a (:href "/edit-customer?id=TODO"
@@ -301,22 +304,15 @@
     (h3 () "Primary content goes here :)")))
 
 (defun start ()
-  (unless *app*
-    (setf *app*
-          (make-instance
-           'app
-           :db (open-orders.tables:database-connect)
-           :acceptor (make-instance 'hunchentoot:easy-acceptor :port 8000))))
-  (hunchentoot:start (acceptor *app*)))
+  (database-connect)
+  (setf *acceptor* (make-instance 'hunchentoot:easy-acceptor :port 8000))
+  (hunchentoot:start *acceptor*))
 
 (defun stop ()
-  (when *app*
-    (when (db *app*)
-      (open-orders.tables:database-disconnect (db *app*))
-      (setf (db *app*) nil))
-    (when (acceptor *app*)
-      (hunchentoot:stop (acceptor *app*))))
-  (setf *app* nil))
+  (database-disconnect)
+  (when *acceptor*
+    (hunchentoot:stop *acceptor*)
+    (setf *acceptor* nil)))
 
 
 (defun main ()

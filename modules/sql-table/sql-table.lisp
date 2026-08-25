@@ -30,7 +30,8 @@
    #:lisp-type->sql-type
    #:lisp-name->sql-name
    #:references-form-p
-   #:select-all))
+   #:select-all
+   #:*database-handle*))
 (in-package #:open-orders.sql-table)
 
 ;;;; ==== OPTIONAL DEPENDENCIES ====
@@ -349,19 +350,28 @@
                (table.primary-key.column (class->table (class-of instance))))))
 
 ;;;; ==== PUBLIC API ====
-(defun create (classname &optional if-not-exists)
+(defvar *database-handle* nil)
+(defgeneric exec (database-handle statement))
+
+(defun make-create-statement (classname &key if-not-exists)
   (make-statement
    :sql (table.sql.create-table (class->table
                                  (find-finalized-class classname))
                                 :if-not-exists if-not-exists)))
+(defun create (classname &key if-not-exists (database-handle *database-handle*))
+  (exec database-handle (make-create-statement
+                         classname :if-not-exists if-not-exists)))
 
-(defun drop (classname &optional if-exists)
+(defun make-drop-statement (classname &key if-exists)
   (make-statement
    :sql (table.sql.drop-table (class->table
-                                 (find-finalized-class classname))
+                               (find-finalized-class classname))
                               :if-exists if-exists)))
+(defun drop (classname &key if-exists (database-handle *database-handle*))
+  (exec database-handle (make-drop-statement
+                         classname :if-exists if-exists)))
 
-(defun insert (instance)
+(defun make-insert-statement (instance)
   (let* ((class (class-of instance))
          (table (class->table class)))
     (make-statement
@@ -369,6 +379,8 @@
      :params (instance->sql-values instance)
      :fetch t
      :fetch-results-parse-function (lambda (result) (first result)))))
+(defun insert (classname &key (database-handle *database-handle*))
+  (exec database-handle (make-insert-statement classname)))
 
 (defun parse-select-statement-results (values names types classname)
   "Parses a list of sql values the data contained in statement"
@@ -383,7 +395,7 @@
                     (sql-value->lisp-value type val)))
     instance))
 
-(defun select (classname where-column where-value)
+(defun make-select-statement (classname where-column where-value)
   (let ((table (class->table (find-finalized-class classname))))
     (make-statement
      :sql (table.sql.select table :column-names (table.column-names table)
@@ -399,8 +411,12 @@
                (mapcar #'closer-mop:slot-definition-type
                        (closer-mop:class-slots (find-class classname)))
                classname))))))
+(defun select (classname where-column where-value
+               &key (database-handle *database-handle*))
+  (exec database-handle (make-select-statement classname where-column
+                                               where-value)))
 
-(defun select-all (classname)
+(defun make-select-all-statement (classname)
   (let ((table (class->table (find-finalized-class classname))))
     (make-statement
      :sql (table.sql.select table :column-names (table.column-names table)
@@ -416,8 +432,10 @@
                   (table.column-lisp-types table)
                   classname))
                values)))))
+(defun select-all (classname &key (database-handle *database-handle*))
+  (exec database-handle (make-select-all-statement classname)))
 
-(defun update (instance)
+(defun make-update-statement (instance)
   (let ((table (class->table (class-of instance))))
     (make-statement
      :sql (table.sql.update table
@@ -425,8 +443,10 @@
      :params (append (instance->sql-values instance)
                      (list
                       (instance->primary-key-value instance))))))
+(defun update (instance &key (database-handle *database-handle*))
+  (exec database-handle (make-update-statement instance)))
 
-(defgeneric exec (database-handle statement))
+
 
 ;;;; OPTIONAL DBI INTEGRATION
 #+dbi

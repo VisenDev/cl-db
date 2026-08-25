@@ -50,7 +50,8 @@
            #:scheduled-shipment-quota
            #:scheduled-shipment-amount
            #:scheduled-shipment-completed-p
-           #:open-order-deadline))
+           #:open-order-deadline
+           #:open-orders-table))
 (in-package #:open-orders.tables)
 
 (defclass autodefined-table () ())
@@ -146,26 +147,26 @@
 
 ;;; Utils
 (defun database-connect ()
-  (let ((db (dbi:connect :sqlite3 :database-name "open-orders.sqlite3")))
+  (unless *database-handle*
+    (let ((db (dbi:connect :sqlite3 :database-name "open-orders.sqlite3")))
+      (setf *database-handle* db)
+      (dolist (class
+               (closer-mop:class-direct-subclasses (find-class 'autodefined-table)))
+        (create (class-name class) :if-not-exists t)))))
 
-    (dolist (class
-             (closer-mop:class-direct-subclasses (find-class 'autodefined-table)))
-      (exec db (create (class-name class) t)))
-    db))
+(defun database-disconnect ()
+  (when *database-handle*
+    (dbi:disconnect *database-handle*)
+    (setf *database-handle* nil)))
 
-(defun database-disconnect (db)
-  (dbi:disconnect db))
-
-(defun %nuke-tables (db)
+(defun %nuke-tables ()
+  (database-connect)
   (dolist (class
            (closer-mop:class-direct-subclasses (find-class 'autodefined-table)))
-    (exec db (drop (class-name class) t))))
+    (drop (class-name class) :if-exists t)))
 
 (defun user-create-new (name password)
-  (let ((db (database-connect)))
-    (exec
-     db (insert
-         (make-instance 'user
-                        :name name
-                        :hash (cl-pass:hash password))))
-    (database-disconnect db)))
+  (database-connect)
+  (insert (make-instance 'user
+                         :name name
+                         :hash (cl-pass:hash password))))
