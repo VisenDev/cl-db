@@ -51,7 +51,8 @@
            #:scheduled-shipment-amount
            #:scheduled-shipment-completed-p
            #:open-order-deadline
-           #:open-orders-table))
+           #:open-orders-table
+           #:select-slot))
 (in-package #:open-orders.tables)
 
 (defclass autodefined-table () ())
@@ -141,9 +142,17 @@
     (loop :for shipment :in filtered
           :minimize (scheduled-shipment-date shipment))))
 
-(defclass/std connection ()
-  ((user db)))
 
+(declaim (ftype (function (symbol (or string integer) symbol) t)
+                select-slot))
+(defun select-slot (classname id slotname)
+  "Looks up the object in the database and accesses slotname, returns nil otherwise."
+  (let* ((parsed-id (if (stringp id) (parse-integer id)
+                        id))
+         (obj (select classname 'id parsed-id)))
+    (when obj
+      (when (slot-boundp obj slotname)
+        (slot-value obj slotname)))))
 
 ;;; Utils
 (defun database-connect ()

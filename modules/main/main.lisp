@@ -2,187 +2,97 @@
   (:use #:cl
         #:open-orders.pagen
         #:open-orders.sql-table
-        #:open-orders.tables)
+        #:open-orders.tables
+        #:open-orders.templates
+        #:open-orders.auth)
+  (:import-from #:url-rewrite
+                #:url-encode)
   (:export
    #:main))
 (in-package #:open-orders.main)
 
 (defvar *acceptor* nil)
 
+(defparameter *toplevel-links*
+  '("logout" "open-orders" "customers" "inventory"))
 
-;; (defmacro when-object-exists ((varname class id) (&body then) &optional (&body else))
-;;   (alexandria:with-gensyms (parsed-id id-value)
-;;     `(let ((,id-value ,id)
-;;            (,parsed-id (the 'integer
-;;                             (if (stringp ,value)
-;;                                 (parse-integer ,id-value)
-;;                                 )))))
-;;     )
-;;   )
-
-(defparameter *auth-cookie* "AUTH_TOKEN")
-(defun perform-auth-check ()
-  (let ((token (hunchentoot:cookie-in *auth-cookie*)))
-    (unless token
-      (hunchentoot:redirect "/login"))
-    (let ((user (select 'user 'authentication-token token)))
-      (unless user
-        (hunchentoot:redirect "/login")))))
-
-(hunchentoot:define-easy-handler (css :uri "/orders.css") ()
-  (setf (hunchentoot:content-type*) "text/css")
-  #.(uiop:read-file-string (asdf:system-relative-pathname "open-orders.main"
-                                                          "orders.css")))
-
-(defmacro link-bar (&rest name-href-pairs)
-  `(table ()
+(defun insert-toplevel-links ()
+  (form ()
+   (table ()
      (tr ()
-       ,@(loop :for name-href :in name-href-pairs
-              :for name = (if (listp name-href) (first name-href)
-                              name-href)
-              :for href = (if (listp name-href) (second name-href)
-                              `(format nil "/~a" ,name-href))
-              :collect `(td ()
-                         (a (:href ,href) ,name))))))
-
-(defmacro toplevel-tab-bar ()
-  `(link-bar "logout" "open-orders" "customers" "inventory"))
-
-(defmacro with-page (&body body)
-  `(progn
-     (setf (hunchentoot:content-type*) "text/html")
-     (doctype ()
-       (html ()
-         (head ()
-           (title () "Open Orders")
-           (meta (:charset "utf-8"))
-           (link (:href "/orders.css" :rel "stylesheet")))
-         (body ()
-           ,@body)))))
-
-(defmacro with-internal-page (&body body)
-  `(progn
-     (perform-auth-check)
-     (with-page
-       (h1 () "Campro Open Orders")
-       (toplevel-tab-bar)
-       (hr () )
-       ,@body)))
-
-(declaim (ftype (function () string) auth-token-create))
-(defun auth-token-create ()
-  "Create a unique token used to associate a browser with a user"
-  (crypto:byte-array-to-hex-string
-   (crypto:random-data 16)))
-
-(hunchentoot:define-easy-handler (logouyt :uri "/logout") ()
-  (hunchentoot:set-cookie *auth-cookie* :value nil)
-  (hunchentoot:redirect "/login"))
-
-(hunchentoot:define-easy-handler (login :uri "/login") ((username :init-form nil)
-                                                        (password :init-form nil))
-
-  (let ((errmsg nil))
-
-    ;; Attempt login
-    (when (or username password)
-      (let ((user (select 'user 'name username)))
-        (cond
-          ;; Success
-          ((and user (cl-pass:check-password password (hash user)))
-           (setf (authentication-token user) (auth-token-create))
-           (update user)
-           (hunchentoot:set-cookie *auth-cookie*
-                                   :value (authentication-token user))
-           (hunchentoot:redirect "/"))
-
-          ;; User found but wrong password
-          (user
-           (setf errmsg "Incorrect Password"))
-
-          ;; Incorrect username and password
-          (t
-           (setf errmsg "Unknown Username")))))
-
-    ;; Display login screen
-    (setf (hunchentoot:content-type*) "text/html")
-    (with-page
-      (h1 () "Campro Login")
-      (when errmsg
-        (p () errmsg))
-      (form (:method "POST" :action "/login")
-        (table ()
-          (tr ()
-            (td () (label (:for "username") "Username"))
-            (td () (input (:type "text" :name "username"
-                           :id "username" :autocomplete "on"))))
-          (tr ()
-            (td () (label (:for "password") "Password"))
-            (td () (input (:type "password" :name "password"
-                           :id "password" :autocomplete "on"))))
-          (tr ()
-            (td () (input (:type "submit") ""))))))))
+       (mapcar (lambda (arg)
+                 (td () 
+                   (button (:type "submit"
+                            :formaction  (format nil "/~a" arg))
+                     arg)))
+               *toplevel-links*)))))
 
 (hunchentoot:define-easy-handler (index :uri "/") ()
   (perform-auth-check)
   (hunchentoot:redirect "/open-orders"))
 
+(defun get-open-orders-sorted-by (sort-by reverse)
+  (let* ((raw (select-all 'open-order))
+         (sorted 
+           (if (null sort-by)
+               raw
+               ;; else
+               (sort
+                raw 
+                (alexandria:switch (sort-by :test #'string=)
+                  ("part-number"
+                   (lambda (lhs rhs)
+                     (string-lessp
+                      (ignore-errors
+                       (part-number (select 'part 'id (part lhs))))
+                      (ignore-errors
+                       (part-number (select 'part 'id (part rhs)))))))
+                  ("purchase-order"
+                   (lambda (lhs rhs)
+                     (string-lessp (purchase-order lhs)
+                                   (purchase-order rhs))))
+                  ("due-date"
+                   (lambda (lhs rhs)
+                     (< (open-order-deadline lhs)
+                        (open-order-deadline rhs))))
+                  ("line-item"
+                   (lambda (lhs rhs)
+                     (< (line-item lhs)
+                        (line-item rhs)))))))))
+    (if reverse (reverse sorted) sorted)))
 
+(hunchentoot:define-easy-handler (open-orders :uri "/open-orders") (sort-by reversed)
 
-(defun get-open-orders-sorted-by (sort-by)
-  (let ((raw (select-all 'open-order)))
-    (if (null sort-by)
-        raw
-        ;; else
-        (sort
-         raw 
-         (alexandria:switch (sort-by :test #'string=)
-           ("part"
-            (lambda (lhs rhs)
-              (string-lessp
-               (ignore-errors
-                (part-number (select 'part 'id (part lhs))))
-               (ignore-errors
-                (part-number (select 'part 'id (part rhs)))))))
-           ("purchase-order"
-            (lambda (lhs rhs)
-              (string-lessp (purchase-order lhs)
-                            (purchase-order rhs))))
-           ("due-date"
-            (lambda (lhs rhs)
-              (< (open-order-deadline lhs)
-                 (open-order-deadline rhs))))
-           ("line-item"
-            (lambda (lhs rhs)
-              (< (line-item lhs)
-                 (line-item rhs)))))))))
-
-(hunchentoot:define-easy-handler (open-orders :uri "/open-orders") (sort-by)
-  (with-internal-page
-    (table ()
-      (tr ()
-        (th () (a (:href "/open-orders?sort-by=part" ) "Part Number"))
-        (th () (a (:href "/open-orders?sort-by=purchase-order" ) "Po Number"))
-        (th () (a (:href "/open-orders?sort-by=due-date" ) "Due Date"))
-        (th () (a (:href "/open-orders?sort-by=line-item" ) "Line Item"))
-        (th () (a (:href "/new?type=order") (button () "New"))))
-      (macrolet
-          ((with-link-to-edit-url (&body body)
-             `(a (:href (format nil "/edit-order?id=~a" (id order)))
-                ,@body)))
-        (mapcar (lambda (order)
-
-                  (tr ()
-                    
-                    (td ()
-                      (with-link-to-edit-url
-                          (ignore-errors
-                           (part-number
-                            (select 'part 'id (part order))))))
-                    (td () (with-link-to-edit-url (purchase-order order)))
-                    (td () (with-link-to-edit-url "TODO"))
-                    (td () (with-link-to-edit-url (line-item order)))))
-                (get-open-orders-sorted-by sort-by))))))
+  (let ((reversed-p (string= reversed "true")))
+    (flet ((table-header-href (sort-by)
+             (format nil "/open-orders?sort-by=~a&reversed=~a"
+                     sort-by
+                     (if reversed-p "false" "true")))
+           (edit-order-href (open-order-id)
+             (format nil "/edit-order?id=~a" open-order-id)))
+      (with-internal-page
+        (insert-toplevel-links)
+        (hr ())
+        (table ()
+          (tr ()
+            (th () (a (:href (table-header-href "part-number")) "Part Number"))
+            (th () (a (:href (table-header-href "purchase-order")) "Po Number"))
+            (th () (a (:href (table-header-href "due-date")) "Due Date"))
+            (th () (a (:href (table-header-href "line-item")) "Line Item"))
+            (th () (a (:href "/new?type=order") (button () "New"))))
+          (mapcar (lambda (order)
+                    (let ((href (edit-order-href (id order))))
+                      (tr ()
+                        (td ()
+                          (a (:href href)
+                            (ignore-errors
+                             (part-number
+                              (select 'part 'id (part order))))))
+                        (td () (a (:href href)
+                                 (purchase-order order)))
+                        (td () (a (:href href) "TODO"))
+                        (td () (a (:href href) (line-item order))))))
+                  (get-open-orders-sorted-by sort-by reversed-p)))))))
 
 (hunchentoot:define-easy-handler (new :uri "/new") (type)
   (with-internal-page 
@@ -205,69 +115,74 @@
          ,@body))))
 
 (hunchentoot:define-easy-handler
-    (save-order-po-details :uri "/save-order") (id tab)
+    (save-order-po-details :uri "/save-order") (id redirect)
 
   (perform-auth-check)
   
   (let ((params (hunchentoot:post-parameters*))
         (order (select 'open-order 'id (parse-integer id))))
-
-    (print "Looking for order")
-    (terpri)
+    (format t "Params: ~a~%~%" params)
     (when order
-      (print "Order found!")
-      (terpri)
-
-      (print params)
-      (terpri)
-
       ;; Customer Code
       (when-assoc (customer-code 'customer-code params)
+        (format t "customer-code: ~a~%~%" customer-code)
         (let ((customer (select 'customer 'name customer-code)))
           (if customer
               
               ;;customer found, update id
-              (progn
-                (setf (customer order) (id customer))
-                (print "customer found")
-                (terpri))
+              (setf (customer order) (id customer))
 
               ;; else create new customer
               (let* ((new-customer (make-instance 'customer
                                                   :name customer-code))
                      (new-customer-id (insert new-customer)))
-                (print "Creating a new customer")
-                (terpri)
+                (format t "New customer id: ~a~%~%" new-customer-id)
                 (setf (customer order) new-customer-id)))))
 
       ;; finally save order and redirect
       (update order))
 
     ;; Redirect back to app
-    (hunchentoot:redirect (format nil "/edit-order?id=~a&tab=~a"
-                                  id tab)
-                          :code 303)))
+    (hunchentoot:redirect redirect :code 303)))
 
 (hunchentoot:define-easy-handler (edit-order :uri "/edit-order") (id tab)
-  ;; redirect to po-details tab
-  (format t "id=~S,tab=~S~%" id tab)
-  (let ((order (select 'open-order 'id (parse-integer id))))
-    (flet ((tab-link (tab)
-             (format nil "/save-order?id=~a&tab=~a" id tab)))
-      (unless tab
-        (hunchentoot:redirect (tab-link "po-details")))
+
+  (unless tab
+      (hunchentoot:redirect (format nil "/edit-order?id=~a&tab=po-details" id)))
+
+  (labels ((format-save-url (redirect)
+             (format nil "/save-order?id=~a&redirect=~a" id (url-encode redirect)))
+           (save-button (contents destination)
+             (td ()
+               (button (:type "submit"
+                        :formaction (format-save-url destination))
+                 contents)))
+           (format-tab-link (tab)
+             (format nil "/edit-order?id=~a&tab=~a" id tab)))
+    (let ((order (select 'open-order 'id (parse-integer id))))
       (with-internal-page
-        (link-bar ("po-details" (tab-link "po-details"))
-                  ("job-ticket" (tab-link "job-ticket"))
-                  ("shipping-details" (tab-link "shipping-details"))
-                  ("certificate-of-conformance"
-                   (tab-link "certificate-of-conformance")))
-        (h1 ()
-          (hunchentoot:post-parameters*))
-        (form (:method "POST" :action (tab-link "po-details"))
+        (form (:method "POST" :action (format-save-url
+                                       (format-tab-link "po-details")))
+          (table ()
+            ;; toplevel tab bar
+            (tr ()
+              (mapcar (lambda (arg)
+                        (save-button arg (format nil "/~a" arg)))
+                      *toplevel-links*)))
+
+          (hr ())
+
+          ;; order tab bar
           (table ()
             (tr ()
-              (td () (input (:type "submit"))))
+              (mapcar (lambda (tab)
+                        (save-button tab (format-tab-link tab)))
+                      '("po-details" "job-ticket"
+                        "shipping-details" "certificate-of-conformance"))))
+          
+          (table ()
+            ;; (tr ()
+            ;;   (td () (input (:type "submit"))))
             (tr ()
               (td ()
                 (table ()
