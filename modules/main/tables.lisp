@@ -146,7 +146,7 @@
 
 ;;; Utils
 (defun database-connect ()
-  (let ((db (dbi:connect :sqlite3 :database-name "test.sqlite3")))
+  (let ((db (dbi:connect :sqlite3 :database-name "open-orders.sqlite3")))
 
     (dolist (class
              (closer-mop:class-direct-subclasses (find-class 'autodefined-table)))

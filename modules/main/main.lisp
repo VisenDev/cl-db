@@ -25,15 +25,40 @@
   #.(uiop:read-file-string (asdf:system-relative-pathname "open-orders.main"
                                                           "orders.css")))
 
+(defmacro link-bar (&rest name-href-pairs)
+  `(table ()
+     (tr ()
+       ,@(loop :for name-href :in name-href-pairs
+              :for name = (if (listp name-href) (first name-href)
+                              name-href)
+              :for href = (if (listp name-href) (second name-href)
+                              `(format nil "/~a" ,name-href))
+              :collect `(td ()
+                         (a (:href ,href) ,name))))))
+
+(defmacro toplevel-tab-bar ()
+  `(link-bar "logout" "open-orders" "customers" "inventory"))
+
 (defmacro with-page (&body body)
-  `(doctype ()
-     (html ()
-       (head ()
-         (title () "Open Orders")
-         (meta (:charset "utf-8"))
-         (link (:href "/orders.css" :rel "stylesheet")))
-       (body ()
-         ,@body))))
+  `(progn
+     (setf (hunchentoot:content-type*) "text/html")
+     (doctype ()
+       (html ()
+         (head ()
+           (title () "Open Orders")
+           (meta (:charset "utf-8"))
+           (link (:href "/orders.css" :rel "stylesheet")))
+         (body ()
+           ,@body)))))
+
+(defmacro with-internal-page (&body body)
+  `(progn
+     (perform-auth-check)
+     (with-page
+       (h1 () "Campro Open Orders")
+       (toplevel-tab-bar)
+       (hr () )
+       ,@body)))
 
 (declaim (ftype (function () string) auth-token-create))
 (defun auth-token-create ()
@@ -93,13 +118,6 @@
   (perform-auth-check)
   (hunchentoot:redirect "/open-orders"))
 
-(defun insert-tab-bar ()
-  (let ((pages '("logout" "open-orders" "customers" "inventory")))
-    (table ()
-      (tr ()
-        (loop :for page :in pages
-              :collect (td ()
-                         (a (:href (format nil "~a" page)) page)))))))
 
 
 (defun get-open-orders-sorted-by (sort-by)
@@ -131,11 +149,7 @@
                  (line-item rhs)))))))))
 
 (hunchentoot:define-easy-handler (open-orders :uri "/open-orders") (sort-by)
-  (perform-auth-check)
-  (setf (hunchentoot:content-type*) "text/html")
-  (with-page
-    (h1 () "Campro Open Orders")
-    (insert-tab-bar)
+  (with-internal-page
     (table ()
       (tr ()
         (th () (a (:href "/open-orders?sort-by=part" ) "Part Number"))
@@ -145,9 +159,7 @@
         (th () (a (:href "/new?type=order") (button () "New"))))
       (macrolet
           ((with-link-to-edit-url (&body body)
-             `(a (:href (format nil "/edit?type=order&id=~a"
-                                (url-rewrite:url-encode
-                                 (format nil "~a" (id order)))))
+             `(a (:href (format nil "/edit-order?id=~a" (id order)))
                 ,@body)))
         (mapcar (lambda (order)
 
@@ -165,48 +177,39 @@
                 (get-open-orders-sorted-by sort-by))))))
 
 (hunchentoot:define-easy-handler (new :uri "/new") (type)
-  (perform-auth-check)
-  (with-page 
+  (with-internal-page 
     (alexandria:switch (type :test #'string=)
       ("order"
        (let ((id (exec (db *app*)
                        (insert (make-instance
                                 'open-order
                                 :purchase-order (auth-token-create))))))
-         (hunchentoot:redirect (format nil "/edit?type=order&id=~a"
-                                       (url-rewrite:url-encode
-                                        ;; TODO: swap out url-rewrite with
-                                        ;; my own package
-                                        (format nil "~a" id))))))
+         (hunchentoot:redirect (format nil "/edit-order?id=~a" id))))
       (otherwise
        (h1 () "Error: don't know how to make a new '~a'" type)))))
 
-(hunchentoot:define-easy-handler (edit :uri "/edit") (type id)
-  (perform-auth-check)
-  (with-page
-    (alexandria:switch (type :test #'string=)
-      ("order"
-       (list
-        (insert-tab-bar)
-        (h1 () (format nil "Editing open order ~a" id))))
-      (otherwise
-       (h1 () "Error: don't know how to edit '~a'" type)))))
+(hunchentoot:define-easy-handler (edit-order :uri "/edit-order") (id tab)
+  ;; redirect to po-details tab
+
+  (flet ((tab-link (tab)
+           (format nil "/edit-order?id=~a&tab=~a" id tab)))
+    (unless tab
+      (hunchentoot:redirect (tab-link "po-details")))
+    (with-internal-page
+      (link-bar ("po-details" (tab-link "po-details"))
+                ("job-ticket" (tab-link "job-ticket"))
+                ("shipping-details" (tab-link "shipping-details"))
+                ("certificate-of-conformance"
+                 (tab-link "certificate-of-conformance")))
+      (h1 () (format nil "Editing open order ~a" id)))))
 
 (hunchentoot:define-easy-handler (customers :uri "/customers") ()
-  (perform-auth-check)
-  (setf (hunchentoot:content-type*) "text/html")
-  (with-page
-    (h1 () "Campro Open Orders")
-    (insert-tab-bar)
+  (with-internal-page
     (p () "Customers Page")
     (h3 () "Primary content goes here :)")))
 
 (hunchentoot:define-easy-handler (inventory :uri "/inventory") ()
-  (perform-auth-check)
-  (setf (hunchentoot:content-type*) "text/html")
-  (with-page
-    (h1 () "Campro Open Orders")
-    (insert-tab-bar)
+  (with-internal-page
     (p () "Inventory Page")
     (h3 () "Primary content goes here :)")))
 
@@ -222,7 +225,8 @@
 (defun stop ()
   (when *app*
     (when (db *app*)
-      (open-orders.tables:database-disconnect (db *app*)))
+      (open-orders.tables:database-disconnect (db *app*))
+      (setf (db *app*) nil))
     (when (acceptor *app*)
       (hunchentoot:stop (acceptor *app*))))
   (setf *app* nil))
