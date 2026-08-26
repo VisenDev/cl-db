@@ -5,7 +5,7 @@
   :depends-on ("dbd-sqlite3" "open-orders.sql-table" "open-orders.pagen"
                "defclass-std" "uiop" "closer-mop" "hunchentoot"
                "ironclad" "cl-pass" "asdf" "url-rewrite")
-  :components ((:file "templates")
+  :components ((:file "tables")
+               (:file "templates")
                (:file "auth")
-               (:file "tables")
                (:file "main")))

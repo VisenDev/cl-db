@@ -17,15 +17,14 @@
   '("logout" "open-orders" "customers" "inventory"))
 
 (defun insert-toplevel-links ()
-  (form ()
-   (table ()
-     (tr ()
-       (mapcar (lambda (arg)
-                 (td () 
-                   (button (:type "submit"
-                            :formaction  (format nil "/~a" arg))
-                     arg)))
-               *toplevel-links*)))))
+  (table ()
+    (tr ()
+      (mapcar (lambda (arg)
+                (td ()
+                  (form (:action (format nil "/~a" arg))
+                    (button (:type "submit")
+                      arg))))
+              *toplevel-links*))))
 
 (hunchentoot:define-easy-handler (index :uri "/") ()
   (perform-auth-check)
@@ -79,7 +78,7 @@
             (th () (a (:href (table-header-href "purchase-order")) "Po Number"))
             (th () (a (:href (table-header-href "due-date")) "Due Date"))
             (th () (a (:href (table-header-href "line-item")) "Line Item"))
-            (th () (a (:href "/new?type=order") (button () "New"))))
+            (th () (a (:href "/new?type=order") (div (:class "border") "New"))))
           (mapcar (lambda (order)
                     (let ((href (edit-order-href (id order))))
                       (tr ()
@@ -114,55 +113,58 @@
        (when ,varname
          ,@body))))
 
-(hunchentoot:define-easy-handler
-    (save-order-po-details :uri "/save-order") (id redirect)
-
-  (perform-auth-check)
+(defvar *previous-save-order-params* nil)
+(hunchentoot:define-easy-handler (save-order :uri "/save-order") (id)
   
-  (let ((params (hunchentoot:post-parameters*))
-        (order (select 'open-order 'id (parse-integer id))))
-    (format t "Params: ~a~%~%" params)
-    (when order
-      ;; Customer Code
-      (when-assoc (customer-code 'customer-code params)
-        (format t "customer-code: ~a~%~%" customer-code)
-        (let ((customer (select 'customer 'name customer-code)))
-          (if customer
-              
-              ;;customer found, update id
-              (setf (customer order) (id customer))
+  (let* ((params (hunchentoot:post-parameters*))
+         (can-skip-update (equalp params *previous-save-order-params*)))
 
-              ;; else create new customer
-              (let* ((new-customer (make-instance 'customer
-                                                  :name customer-code))
-                     (new-customer-id (insert new-customer)))
-                (format t "New customer id: ~a~%~%" new-customer-id)
-                (setf (customer order) new-customer-id)))))
+    ;; only update database when params change
+    (unless can-skip-update
+      (setf *previous-save-order-params* params)
+      (perform-auth-check)
+      
+      (let ((order (select 'open-order 'id (parse-integer id))))
+        (when order
+          ;; Customer Code
+          (when-assoc (customer-code 'customer-code params)
+            (let ((customer (select 'customer 'name customer-code)))
+              (if customer
+                  
+                  ;;customer found, update id
+                  (setf (customer order) (id customer))
 
-      ;; finally save order and redirect
-      (update order))
+                  ;; else create new customer
+                  (let* ((new-customer (make-instance 'customer
+                                                      :name customer-code))
+                         (new-customer-id (insert new-customer)))
+                    (setf (customer order) new-customer-id)))))
+
+          ;; finally save order and redirect
+          (update order))))
 
     ;; Redirect back to app
-    (hunchentoot:redirect redirect :code 303)))
+    (hunchentoot:redirect (hunchentoot:post-parameter "redirect") ;; :code 303
+                          )))
 
 (hunchentoot:define-easy-handler (edit-order :uri "/edit-order") (id tab)
 
   (unless tab
       (hunchentoot:redirect (format nil "/edit-order?id=~a&tab=po-details" id)))
 
-  (labels ((format-save-url (redirect)
-             (format nil "/save-order?id=~a&redirect=~a" id (url-encode redirect)))
+  (labels ((format-save-url ()
+             (format nil "/save-order?id=~a" id))
            (save-button (contents destination)
              (td ()
                (button (:type "submit"
-                        :formaction (format-save-url destination))
+                        :name "redirect"
+                        :value destination)
                  contents)))
            (format-tab-link (tab)
              (format nil "/edit-order?id=~a&tab=~a" id tab)))
     (let ((order (select 'open-order 'id (parse-integer id))))
       (with-internal-page
-        (form (:method "POST" :action (format-save-url
-                                       (format-tab-link "po-details")))
+        (form (:method "POST" :action (format-save-url))
           (table ()
             ;; toplevel tab bar
             (tr ()
@@ -181,8 +183,6 @@
                         "shipping-details" "certificate-of-conformance"))))
           
           (table ()
-            ;; (tr ()
-            ;;   (td () (input (:type "submit"))))
             (tr ()
               (td ()
                 (table ()
@@ -200,21 +200,21 @@
                       (mapcar #'name (select-all 'customer))))
                   (tr ()
                     (td () "Customer Name")
-                    (td () (a (:href "/edit-customer?id=TODO"
-                               :style "padding:none;")
-                             (button () "View Customer Information")))))
-                ))
-            )
-          )
-        ))))
+                    (save-button "View Customer Information"
+                                        (format nil  "/edit-customer?id=~a"
+                                                (customer order)))))))))))))
 
 (hunchentoot:define-easy-handler (customers :uri "/customers") ()
   (with-internal-page
+    (insert-toplevel-links)
+    (hr ())
     (p () "Customers Page")
     (h3 () "Primary content goes here :)")))
 
 (hunchentoot:define-easy-handler (inventory :uri "/inventory") ()
   (with-internal-page
+    (insert-toplevel-links)
+    (hr ())
     (p () "Inventory Page")
     (h3 () "Primary content goes here :)")))
 

@@ -1,7 +1,9 @@
 LISP?=sbcl
 
 main:
-	$(LISP) --eval '(load "init.lisp")' \
+	$(LISP) \
+	--eval '(declaim (optimize (speed 3) (safety 1)))' \
+	--eval '(load "init.lisp")' \
 	--eval '(asdf:make "open-orders")' \
 	--eval '(uiop:quit)'
 

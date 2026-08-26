@@ -38,7 +38,8 @@
            #:title #:tr #:track #:tt
            #:underline #:var #:video #:wbr
            #:xmp
-           #:doctype))
+           #:doctype
+           #:br))
 (in-package #:open-orders.pagen)
 
 (eval-when (:compile-toplevel :load-toplevel)
@@ -61,7 +62,19 @@
             (setf (first result)
                   (concatenate 'string (first result) form))
             (push form result)))
-      (nreverse result))))
+      (nreverse result)))
+  (defun format-attributes-plist (attributes-plist)
+    (loop :for (name value) :on attributes-plist :by #'cddr
+          :collect (if (and (or (stringp name) (keywordp name))
+                            (or (stringp value) (keywordp value)))
+
+                       ;; create the attributes string at compile time if possible
+                       (string-downcase
+                        (format nil " ~a=\"~a\"" name value))
+
+                       ;; otherwise just create the code to do so at runtime
+                       `(string-downcase
+                         (format nil " ~a=\"~a\"" ,name ,value))))))
 
 (defmacro doctype (attributes-plist &body contents &environment env)
   "Special doctype tag"
@@ -70,6 +83,17 @@
                 ,@(deduplicate-concatenate
                    (mapcar (lambda (form) (macroexpand form env)) contents))))
 
+
+
+(defmacro self-closing-tag (name attributes-plist)
+  (compress-adjacent-strings
+   `(concatenate
+     'string
+     ;; Tag Open
+     ,(format nil "<~a" name)
+     ,@(format-attributes-plist attributes-plist)
+     ">")))
+
 (defmacro tag (name attributes-plist &rest contents &environment env)
   (compress-adjacent-strings
    `(concatenate
@@ -77,17 +101,7 @@
 
      ;; Tag Open
      ,(format nil "<~a" name)
-     ,@(loop :for (name value) :on attributes-plist :by #'cddr
-             :collect (if (and (or (stringp name) (keywordp name))
-                               (or (stringp value) (keywordp value)))
-
-                          ;; create the attributes string at compile time if possible
-                          (string-downcase
-                           (format nil " ~a=\"~a\"" name value))
-
-                          ;; otherwise just create the code to do so at runtime
-                          `(string-downcase
-                            (format nil " ~a=\"~a\"" ,name ,value))))
+     ,@(format-attributes-plist attributes-plist)
      ">"
 
      ;; Tag body, with nest (concatenate 'string) forms collapsed
@@ -112,48 +126,60 @@
      ;; Tag Close
      ,(format nil "</~a>" name))))
 
-(defmacro deftag (name)
-  `(defmacro ,name (attributes-plist &body body)
-     `(tag ,,(string-downcase (symbol-name name))
-           ,attributes-plist ,@body)))
+(defmacro deftag (name &key self-closing-p)
+  (if self-closing-p
+      `(defmacro ,name (attributes-plist)
+         `(self-closing-tag ,,(string-downcase (symbol-name name))
+                            ,attributes-plist))
+      `(defmacro ,name (attributes-plist &body body)
+         `(tag ,,(string-downcase (symbol-name name))
+               ,attributes-plist ,@body))))
 
-(defmacro deftags (&body names)
-  (loop :for name :in names
-        :collect `(deftag ,name) :into forms
+(defmacro deftags (&body forms)
+  (loop :for form :in forms
+        :for name = (if (listp form) (first form) form)
+        :for self-closing-p = (if (listp form) (third form) nil)
+        :collect `(deftag ,name :self-closing-p ,self-closing-p) :into forms
         :finally (return `(progn ,@forms))))
 
 (deftags
   h1 h2 h3 h4 h5 p a
   abbreviation acronym address anchor
-  applet area article aside
-  audio base basefont bdi
+  applet (area :self-closing-p t)
+  article aside
+  audio (base :self-closing-p t)
+  basefont bdi
   bdo bgsound big blockquote
-  body bold #|break|# button
-  caption canvas center cite
-  code colgroup col comment
-  data datalist dd define
+  body bold #|break|# (br :self-closing-p t)
+  button caption canvas center cite
+  code colgroup (col :self-closing-p t)
+  comment data datalist dd define
   #|delete|# details dialog dir
-  div dl dt embed
+  div dl dt (embed :self-closing-p t)
   fieldset figcaption figure font
   footer form frame frameset
   head header heading hgroup
-  hr html iframe image
-  input ins isindex italic
+  (hr :self-closing-p t) html iframe
+  (image :self-closing-p t)
+  (img :self-closing-p t)
+  (input :self-closing-p t)
+  ins isindex italic
   kbd keygen label legend
-  link #|list|# #|main|# mark
-  marquee menuitem meta meter
+  (link :self-closing-p t)
+  #|list|# #|main|# mark
+  marquee menuitem (meta :self-closing-p t) meter
   nav nobreak noembed noscript
   object optgroup option output
-  paragraph param em pre
+  paragraph (param :self-closing-p t) em pre
   progress q rp rt
   ruby s samp script
-  section small source spacer
+  section small (source :self-closing-p t) spacer
   span strike strong style
   sub sup summary svg
   table tbody td template
   tfoot th thead #|time|#
-  title tr track tt
-  underline var video wbr
+  title tr (track :self-closing-p t) tt
+  underline var video (wbr :self-closing-p t)
   xmp)
 
 

@@ -21,6 +21,8 @@
          (head ()
            (title () "Open Orders")
            (meta (:charset "utf-8"))
+           (meta (:name "viewport"
+                  :content "width=device-width, initial-scale=1"))
            (link (:href "/orders.css" :rel "stylesheet")))
          (body ()
            ,@body)))))
