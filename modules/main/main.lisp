@@ -60,6 +60,21 @@
                         (line-item rhs)))))))))
     (if reverse (reverse sorted) sorted)))
 
+(defun get-customers-sorted-by (sort-by reverse)
+  (let* ((raw (select-all 'customer))
+         (sorted 
+           (if (null sort-by)
+               raw
+               ;; else
+               (sort
+                raw 
+                (alexandria:switch (sort-by :test #'string=)
+                  ("name" (lambda (lhs rhs)
+                            (string-lessp (name lhs)
+                                          (name rhs))))
+                  (otherwise (error "Unexpected sort-by")))))))
+    (if reverse (reverse sorted) sorted)))
+
 (hunchentoot:define-easy-handler (open-orders :uri "/open-orders") (sort-by reversed)
 
   (let ((reversed-p (string= reversed "true")))
@@ -114,17 +129,18 @@
          ,@body))))
 
 (defvar *previous-save-order-params* nil)
-(hunchentoot:define-easy-handler (save-order :uri "/save-order") (id)
+(hunchentoot:define-easy-handler (save-order :uri "/save-order") () 
   
   (let* ((params (hunchentoot:post-parameters*))
-         (can-skip-update (equalp params *previous-save-order-params*)))
+         (can-skip-update (equalp params *previous-save-order-params*))
+         (id (parse-integer (hunchentoot:post-parameter "id"))))
 
     ;; only update database when params change
     (unless can-skip-update
       (setf *previous-save-order-params* params)
       (perform-auth-check)
       
-      (let ((order (select 'open-order 'id (parse-integer id))))
+      (let ((order (select 'open-order 'id id)))
         (when order
           ;; Customer Code
           (when-assoc (customer-code 'customer-code params)
@@ -143,33 +159,47 @@
           ;; finally save order and redirect
           (update order))))
 
-    ;; Redirect back to app
-    (hunchentoot:redirect (hunchentoot:post-parameter "redirect") ;; :code 303
-                          )))
+    ;; NOTE: we are using a switch here rather than encoding the
+    ;; redirect url directly because EWW (Emacs Web Wowser) seems
+    ;; to display the value of a form button as its label, which 
+    ;; looks bad if the value is a long complex url
+    (hunchentoot:redirect
+     (alexandria:switch ((hunchentoot:post-parameter "redirect")
+                         :test #'string-equal)
+       ("open-orders" "/open-orders")
+       ("customers" "/customers")
+       ("inventory" "/inventory")
+       ("logout" "/logout")
+       ("po-details" (format nil "/edit-order?id=~a&tab=po-details" id))
+       ("job-ticket" (format nil "/edit-order?id=~a&tab=job-ticket" id))
+       ("shipping-details" (format nil "/edit-order?id=~a&tab=shipping-details" id))
+       ("certificate-of-conformance"
+        (format nil "/edit-order?id=~a&tab=certificate-of-conformance" id))
+       (otherwise
+        (hunchentoot:post-parameter "redirect")))
+     :code 303)))
 
 (hunchentoot:define-easy-handler (edit-order :uri "/edit-order") (id tab)
 
   (unless tab
       (hunchentoot:redirect (format nil "/edit-order?id=~a&tab=po-details" id)))
 
-  (labels ((format-save-url ()
-             (format nil "/save-order?id=~a" id))
-           (save-button (contents destination)
+  (labels ((save-button (contents destination)
              (td ()
                (button (:type "submit"
                         :name "redirect"
                         :value destination)
-                 contents)))
-           (format-tab-link (tab)
-             (format nil "/edit-order?id=~a&tab=~a" id tab)))
+                 contents))))
     (let ((order (select 'open-order 'id (parse-integer id))))
       (with-internal-page
-        (form (:method "POST" :action (format-save-url))
+        (form (:method "POST" :action "/save-order") 
+          (input (:type "hidden" :name "id"
+                  :value id))
           (table ()
             ;; toplevel tab bar
             (tr ()
               (mapcar (lambda (arg)
-                        (save-button arg (format nil "/~a" arg)))
+                        (save-button arg arg))
                       *toplevel-links*)))
 
           (hr ())
@@ -178,7 +208,7 @@
           (table ()
             (tr ()
               (mapcar (lambda (tab)
-                        (save-button tab (format-tab-link tab)))
+                        (save-button tab tab))
                       '("po-details" "job-ticket"
                         "shipping-details" "certificate-of-conformance"))))
           
@@ -204,12 +234,27 @@
                                         (format nil  "/edit-customer?id=~a"
                                                 (customer order)))))))))))))
 
-(hunchentoot:define-easy-handler (customers :uri "/customers") ()
-  (with-internal-page
-    (insert-toplevel-links)
-    (hr ())
-    (p () "Customers Page")
-    (h3 () "Primary content goes here :)")))
+(hunchentoot:define-easy-handler (customers :uri "/customers") (sort-by reversed)
+
+  (let ((reversed-p (string= reversed "true")))
+    (flet ((table-header-href (sort-by)
+             (format nil "/customers?sort-by=~a&reversed=~a"
+                     sort-by
+                     (if reversed-p "false" "true")))
+           (edit-customer-href (open-customer-id)
+             (format nil "/edit-customer?id=~a" open-customer-id)))
+      (with-internal-page
+        (insert-toplevel-links)
+        (hr ())
+        (table ()
+          (tr ()
+            (th () (a (:href (table-header-href "name")) "Name"))
+            (th () (a (:href "/new?type=Customer") (div (:class "border") "New"))))
+          (mapcar (lambda (customer)
+                    (let ((href (edit-customer-href (id customer))))
+                      (tr ()
+                        (td () (a (:href href) (name customer))))))
+                  (get-customers-sorted-by sort-by reversed-p)))))))
 
 (hunchentoot:define-easy-handler (inventory :uri "/inventory") ()
   (with-internal-page
