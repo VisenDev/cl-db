@@ -70,7 +70,7 @@
             (td () (input (:type "password" :name "password"
                            :id "password" :autocomplete "on"))))
           (tr ()
-            (td () (input (:type "submit") ""))))))))
+            (td () (input (:type "submit")))))))))
 
 (defmacro with-internal-page (&body body)
   `(progn
