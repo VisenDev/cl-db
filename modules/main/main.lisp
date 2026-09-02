@@ -11,6 +11,12 @@
    #:main))
 (in-package #:open-orders.main)
 
+
+;;;; TODO: create a "query builder" abstraction that
+;;;; builds the open-orders list table. Then we can
+;;;; use that for the other tables or to let the user
+;;;; do custom queries
+
 (defvar *acceptor* nil)
 
 (defparameter *toplevel-links*
