@@ -4,12 +4,6 @@
 
 
 ;;;; Desired interface
-(make-select
- (open-order (make-fields :fields (list 'due-date 'name 'part) :from 'open-orders))
- (part (make-fields :fields (list 'name) :from 'parts :where (parts)))
- :where ()
- )
-
 (defstruct target
   table
   fields)
@@ -17,15 +11,15 @@
 (defstruct ref table field)
 
 (defstruct where
-  lhs op rhs)
+  lhs test rhs)
 
 (defstruct join
   lhs rhs)
 
 (defstruct query
   targets
-  where
-  join)
+  wheres
+  joins)
 
 
 
@@ -35,10 +29,16 @@
                                :fields (list 'due-date 'line-item 'part))
                   (make-target :table 'part
                                :fields (list 'id 'name)))
-   :join (make-join :lhs (make-ref :table 'open-order
-                                   :field 'part)
-                    :rhs (make-ref :table 'part
-                                   :field 'id))))
+   :wheres (list (make-where :lhs (make-ref :table 'open-order
+                                            :field 'tag)
+                             :test #'string-equal
+                             :rhs :vintage-air))
+   :joins (list (make-join :lhs (make-ref :table 'open-order
+                                          :field 'part)
+                           :rhs (make-ref :table 'part
+                                          :field 'id)))))
+
+
 
 (defun retrieve (query)
   (let* ((target-tables (mapcar #'target-table (query-targets query)))

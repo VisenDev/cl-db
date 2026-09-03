@@ -105,6 +105,7 @@
 
 ;;;; ==== DEFINITIONS ====
 (defstruct column
+  (symbol nil :type symbol)
   (name "" :type string)
   (type "" :type string)
   (lisp-name nil :type symbol)
@@ -135,6 +136,7 @@
   (let ((name (closer-mop:slot-definition-name slotd))
         (type (closer-mop:slot-definition-type slotd)))
     (make-column
+     :symbol name
      :name (lisp-name->sql-name name)
      :type (lisp-type->sql-type type)
      :lisp-name name
@@ -395,10 +397,20 @@
                     (sql-value->lisp-value type val)))
     instance))
 
-(defun make-select-statement (classname where-column where-value)
+(defun make-select-statement (classname where-column where-value
+                              &key specific-columns)
   (let ((table (class->table (find-finalized-class classname))))
+    (when specific-columns
+      (let ((column-symbols (mapcar #'column-symbol (table-columns table))))
+        (mapcar (lambda (column)
+                  (unless (member column column-symbols)
+                    (error "Unknown column: ~S" column)))
+                specific-columns)))
+    
     (make-statement
-     :sql (table.sql.select table :column-names (table.column-names table)
+     :sql (table.sql.select table :column-names (or (mapcar #'lisp-name->sql-name
+                                                            specific-columns)
+                                                    (table.column-names table))
                                   :where (lisp-name->sql-name where-column))
      :params (list where-value)
      :fetch t
@@ -445,8 +457,6 @@
                       (instance->primary-key-value instance))))))
 (defun update (instance &key (database-handle *database-handle*))
   (exec database-handle (make-update-statement instance)))
-
-
 
 ;;;; OPTIONAL DBI INTEGRATION
 #+dbi
