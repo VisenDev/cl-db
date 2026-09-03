@@ -169,7 +169,12 @@
                                      (slotd->column name slot))
                                    (persistent-slots))))))
 
-
+(declaim (ftype (function (table symbol) (or column null))
+                table-lookup-column))
+(defun table-lookup-column (table slot-name)
+  "Give a sql-table class and a slot name,
+   return the column definition for that slot"
+  (find slot-name (table-columns table) :key #'column-symbol))
 
 (defun table.sql.create-table (table &key if-not-exists)
   (concatenate
@@ -316,14 +321,9 @@
 
 (defstruct statement
   (sql "" :type string)
+  (values-only-p t :type boolean)
   params
-
-  ;; extra data that can be used for parsing the
-  ;; results of select statements automatically
-  ;; selected-slot-names
-  ;; selected-slot-types
-  ;; selected-classname
-  fetch
+  (fetch t :type (member t nil :all) )
   fetch-results-parse-function)
 
 
@@ -418,6 +418,7 @@
   (exec database-handle (make-select-statement classname where-column
                                                where-value)))
 
+
 (defun make-select-all-statement (classname)
   (let ((table (class->table (find-finalized-class classname))))
     (make-statement
@@ -457,11 +458,112 @@
       ((:all)
        (funcall
         (statement-fetch-results-parse-function statement)
-        (dbi:fetch-all query :format :values)))
+        (dbi:fetch-all query :format (if (statement-values-only-p statement) :values
+                                         :alist))))
       ((t)
        (unless (zerop (dbi:query-row-count query))
          (funcall (statement-fetch-results-parse-function statement)
-                  (dbi:fetch query :format :values))))
+                  (dbi:fetch query :format (if (statement-values-only-p
+                                                statement)
+                                               :values
+                                               :alist)))))
       ((nil) query))))
+
+
+
+
+;; Query Statement
+(defstruct ref
+   "'slot' -> The symbol representing this slot in your sql-table class definition.
+    'as'   ->  The name that the resulting plist will identify this slot as.
+    'foreign-refs' -> If the slot is a foreign key, you can specify
+        this option to automatically select slots from the foreign object as well"
+  (slot (error "Required slot") :type symbol)
+  (as nil :type (or string symbol)) ;; TODO actually support this "as"
+  (foreign-refs nil :type list))
+
+(defun ref.sql.columns-and-joins (table ref-list)
+  (let ((columns nil)
+        (joins nil))
+
+    ;; iterate over all foreign fields
+    (dolist (ref ref-list)
+      (let* ((column
+               (table-lookup-column
+                table (ref-slot ref)))
+             (_ (assert column))
+             (primary-column-sql
+               (format nil "~a.~a AS ~a_~a"
+                       (table-name table) (column-name column)
+                       (table-name table) (column-name column)))
+             (references (column-references column))
+             (foreign-refs (ref-foreign-refs
+                            ref)))
+        (declare (ignore _))
+
+        (when foreign-refs
+          (unless references
+            (error "Cannot do a foreign field query on a column that does
+                not reference another table: ~a" foreign-refs))
+          
+          (let* ((foreign-table-name (first references))
+                 (foreign-column-name (second references))
+                 (foreign-table (class->table
+                                 (find-finalized-class foreign-table-name)))
+                 (foreign-column
+                   (table-lookup-column foreign-table foreign-column-name)))
+            (assert foreign-column)
+            (multiple-value-bind (foreign-columns foreign-joins)
+                (ref.sql.columns-and-joins
+                 foreign-table foreign-refs)
+              (setf columns (append columns foreign-columns))
+              (setf joins (append joins foreign-joins)))
+            
+            (push (format nil "LEFT JOIN ~a ON ~a.~a = ~a.~a"
+                          (table-name foreign-table)
+                          (table-name foreign-table)
+                          (column-name foreign-column)
+                          (table-name table)
+                          (column-name column))
+                  joins)))
+
+        (push primary-column-sql columns)))
+    (values columns joins)))
+
+
+(defun make-query-statement (classname ref-list)
+  (let* ((class (find-finalized-class classname))
+         (table (class->table class)))
+    (multiple-value-bind (columns joins)
+        (ref.sql.columns-and-joins table ref-list)
+      (make-statement
+       :sql (concatenate
+             'string
+             "SELECT"
+             (format nil "~{ ~a~^,~}" columns)
+             " FROM " (table-name table)
+             (format nil "~{ ~a~}" joins)
+             ";")
+       :fetch :all
+       :values-only-p nil
+       :fetch-results-parse-function
+       (lambda (values)
+         values)
+       ))))
+(defun query (classname ref-list &key (database-handle *database-handle*))
+  (exec database-handle (make-query-statement classname ref-list)))
+
+
+(defun test ()
+  (query
+   'open-orders.tables:open-order
+   (list (make-ref
+          :slot 'open-orders.tables:purchase-order)
+         (make-ref :slot 'open-orders.tables:line-item)
+         (make-ref
+          :slot 'open-orders.tables:part
+          :foreign-refs
+          (list (make-ref
+                 :slot 'open-orders.tables:part-number))))))
 
 

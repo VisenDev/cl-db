@@ -45,3 +45,9 @@
          (target-data (mapcar #'select-all target-tables))
          (filtered-data (filter-data target-data (query-where query))))
     (join-data filtered-data (query-join query))))
+
+
+
+(defun sql-table->plist (instance ))
+
+(defun expand-foreign-keys)
